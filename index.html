@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dealer Superhero | Intelligence Platform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700;800;900&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0A0A0F;--bg2:#111118;--card:#16161F;--card2:#1C1C28;
+      --border:#252535;--border2:#333348;
+      --blue:#4169E1;--blue-light:#7B96FF;--blue-glow:rgba(65,105,225,0.25);
+      --red:#E02020;--red-light:#FF5555;
+      --white:#F0F0F8;--white2:#B8B8CC;--muted:#6868A0;
+      --success:#22C55E;--success-bg:rgba(34,197,94,0.12);
+      --warning:#F59E0B;--warning-bg:rgba(245,158,11,0.12);
+      --danger:#EF4444;--danger-bg:rgba(239,68,68,0.12);
+      --font-h:'Unbounded',sans-serif;--font-b:'Space Grotesk',sans-serif;
+      --r:12px;--rs:8px;
+      --sidebar:240px;
+    }
+    body{background:var(--bg);color:var(--white);font-family:var(--font-b);min-height:100vh;display:flex;}
+
+    /* SIDEBAR */
+    .sidebar{width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;}
+    .sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+    .logo-mark{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+    .logo-text{font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;}
+    .logo-text span{color:var(--blue);}
+    .logo-sub{font-size:10px;color:var(--muted);}
+    .nav{padding:12px 0;flex:1;}
+    .nav-section{padding:8px 16px 4px;font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.14em;color:var(--muted);text-transform:uppercase;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;color:var(--white2);cursor:pointer;transition:all 0.2s;border-left:2px solid transparent;}
+    .nav-item:hover{color:var(--white);background:rgba(255,255,255,0.04);}
+    .nav-item.active{color:var(--blue-light);background:rgba(65,105,225,0.08);border-left-color:var(--blue);}
+    .nav-icon{font-size:15px;width:20px;text-align:center;}
+    .sidebar-footer{padding:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
+
+    /* MAIN */
+    .main{margin-left:var(--sidebar);flex:1;min-height:100vh;}
+    .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;}
+    .topbar-title{font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:0.05em;}
+    .topbar-actions{display:flex;gap:10px;align-items:center;}
+    .content{padding:28px;}
+
+    /* BUTTONS */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--rs);font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;border:none;}
+    .btn-primary{background:var(--blue);color:#fff;}
+    .btn-primary:hover{background:#5577F8;}
+    .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--white2);}
+    .btn-ghost:hover{border-color:var(--blue);color:var(--blue-light);}
+    .btn-danger{background:var(--danger-bg);border:1px solid rgba(239,68,68,0.3);color:var(--danger);}
+    .btn-sm{padding:6px 12px;font-size:9px;}
+
+    /* CARDS */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:24px;}
+    .card-sm{padding:16px 18px;}
+
+    /* STATS ROW */
+    .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;}
+    .stat-label{font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .stat-value{font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--white);line-height:1;}
+    .stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+    /* TABLE */
+    .table-wrap{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;}
+    th{font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);}
+    td{padding:12px 16px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border);}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(255,255,255,0.02);color:var(--white);}
+    .td-main{color:var(--white);font-weight:500;}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;font-size:9px;font-weight:700;font-family:var(--font-h);letter-spacing:0.06em;padding:3px 9px;border-radius:100px;text-transform:uppercase;}
+    .badge-active{background:var(--success-bg);color:var(--success);}
+    .badge-draft{background:var(--warning-bg);color:var(--warning);}
+    .badge-paused{background:rgba(104,104,160,0.15);color:var(--muted);}
+    .badge-review{background:var(--danger-bg);color:var(--danger);}
+
+    /* FORMS */
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+    .field{display:flex;flex-direction:column;gap:6px;}
+    .field label{font-size:11px;font-weight:600;color:var(--white2);letter-spacing:0.04em;text-transform:uppercase;}
+    .field input,.field select,.field textarea{background:var(--bg);border:1px solid var(--border2);border-radius:var(--rs);color:var(--white);font-family:var(--font-b);font-size:14px;padding:10px 13px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;-webkit-appearance:none;width:100%;}
+    .field input::placeholder,.field textarea::placeholder{color:var(--muted);}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow);}
+    .field select option{background:var(--card2);}
+    .field textarea{resize:vertical;min-height:80px;}
+    .field-hint{font-size:11px;color:var(--muted);}
+    .form-actions{display:flex;gap:10px;justify-content:flex-end;padding-top:8px;}
+
+    /* MODAL */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;display:none;}
+    .modal-overlay.open{display:flex;}
+    .modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r);width:100%;max-width:640px;max-height:90vh;overflow-y:auto;}
+    .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .modal-title{font-family:var(--font-h);font-size:13px;font-weight:700;}
+    .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;}
+    .modal-close:hover{color:var(--white);}
+    .modal-body{padding:24px;}
+    .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+
+    /* SECTION HEADER */
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .section-title{font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--white);}
+    .section-sub{font-size:13px;color:var(--muted);margin-top:3px;}
+
+    /* DEALER DETAIL */
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+    .detail-card{background:var(--card2);border-radius:var(--rs);padding:14px 16px;}
+    .detail-label{font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .detail-value{font-size:14px;color:var(--white);}
+
+    /* SCORE RING */
+    .score-ring{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;border:3px solid;font-family:var(--font-h);}
+    .score-num{font-size:20px;font-weight:900;line-height:1;}
+    .score-lbl{font-size:8px;opacity:0.6;margin-top:1px;}
+
+    /* CHANNEL SCORES */
+    .channels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;}
+    .channel-card{background:var(--card2);border-radius:var(--rs);padding:14px 16px;}
+    .channel-name{font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--white);margin-bottom:8px;}
+    .channel-score{font-family:var(--font-h);font-size:22px;font-weight:800;margin-bottom:6px;}
+    .channel-bar-track{height:4px;background:var(--border);border-radius:2px;}
+    .channel-bar-fill{height:4px;border-radius:2px;}
+
+    /* EMPTY STATE */
+    .empty{text-align:center;padding:60px 20px;}
+    .empty-icon{font-size:40px;margin-bottom:16px;}
+    .empty-title{font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px;}
+    .empty-sub{font-size:13px;color:var(--muted);max-width:320px;margin:0 auto 20px;}
+
+    /* ALERTS */
+    .alert{padding:12px 16px;border-radius:var(--rs);font-size:13px;margin-bottom:16px;display:none;}
+    .alert-success{background:var(--success-bg);border:1px solid rgba(34,197,94,0.3);color:var(--success);}
+    .alert-error{background:var(--danger-bg);border:1px solid rgba(239,68,68,0.3);color:var(--danger);}
+
+    /* TABS */
+    .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;}
+    .tab{padding:10px 18px;font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s;}
+    .tab:hover{color:var(--white2);}
+    .tab.active{color:var(--blue-light);border-bottom-color:var(--blue);}
+
+    /* VENDOR PROMISE */
+    .promise-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+    .promise-row:last-child{border-bottom:none;}
+    .promise-label{font-size:12px;color:var(--muted);width:200px;flex-shrink:0;}
+    .promise-value{font-size:13px;color:var(--white);flex:1;}
+
+    .divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+    @media(max-width:768px){
+      .sidebar{display:none;}
+      .main{margin-left:0;}
+      .detail-grid{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+        <path d="M14 1L1 6.5v10C1 24 6.5 29.5 14 30.5 21.5 29.5 27 24 27 16.5v-10L14 1z" fill="#4169E1"/>
+        <text x="14" y="21" text-anchor="middle" font-family="Arial Black,sans-serif" font-weight="900" font-size="9" fill="white">DS</text>
+      </svg>
+      <div>
+        <div class="logo-text">DEALER <span>SUPERHERO</span></div>
+      </div>
+    </div>
+    <div class="logo-sub">Intelligence Platform</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">&#127968;</span>Dashboard</div>
+    <div class="nav-item" onclick="showPage('dealers')"><span class="nav-icon">&#127950;</span>Dealers</div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" onclick="showPage('reports')"><span class="nav-icon">&#128202;</span>Monthly Reports</div>
+    <div class="nav-item" onclick="showPage('vendors')"><span class="nav-icon">&#129309;</span>Vendor Tracker</div>
+    <div class="nav-item" onclick="showPage('ai-visibility')"><span class="nav-icon">&#129302;</span>AI Visibility</div>
+  </nav>
+  <div class="sidebar-footer">
+    Dealer Superhero v1.0<br>Built for Shaun
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-actions" id="topbarActions"></div>
+  </div>
+  <div class="content" id="pageContent"></div>
+</main>
+
+<!-- ADD DEALER MODAL -->
+<div class="modal-overlay" id="dealerModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="dealerModalTitle">Add New Dealer</div>
+      <button class="modal-close" onclick="closeModal('dealerModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-success" id="dealerAlert"></div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Dealership Name *</label>
+          <input type="text" id="d_name" placeholder="Sutherlin Subaru"/>
+        </div>
+        <div class="field">
+          <label>Brand / Make</label>
+          <input type="text" id="d_brand" placeholder="Subaru"/>
+        </div>
+        <div class="field">
+          <label>City</label>
+          <input type="text" id="d_city" placeholder="Kingston"/>
+        </div>
+        <div class="field">
+          <label>State</label>
+          <input type="text" id="d_state" placeholder="TN"/>
+        </div>
+        <div class="field">
+          <label>Website URL</label>
+          <input type="url" id="d_website" placeholder="https://"/>
+        </div>
+        <div class="field">
+          <label>Google Business Profile URL</label>
+          <input type="url" id="d_gbp" placeholder="https://maps.app.goo.gl/..."/>
+        </div>
+        <div class="field">
+          <label>Website Provider / CMS</label>
+          <select id="d_cms">
+            <option value="">Select...</option>
+            <option>DealerOn</option>
+            <option>Dealer.com (Cox Automotive)</option>
+            <option>Dealer Inspire (Cars.com)</option>
+            <option>DealerFire (Solera / DealerSocket)</option>
+            <option>Cobalt / Ansira</option>
+            <option>Naked Lime (Reynolds & Reynolds)</option>
+            <option>Adpearance</option>
+            <option>AutoRevo</option>
+            <option>Dealer eProcess</option>
+            <option>Search Optics</option>
+            <option>Other / Custom</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Monthly Retainer ($)</label>
+          <input type="number" id="d_retainer" placeholder="0"/>
+        </div>
+        <div class="field">
+          <label>Start Date</label>
+          <input type="date" id="d_start"/>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="d_status">
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="d_notes" placeholder="Any additional context about this dealer..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('dealerModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDealer()">Save Dealer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD VENDOR MODAL -->
+<div class="modal-overlay" id="vendorModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Vendor</div>
+      <button class="modal-close" onclick="closeModal('vendorModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-success" id="vendorAlert"></div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Vendor Name *</label>
+          <input type="text" id="v_name" placeholder="DealerOn"/>
+        </div>
+        <div class="field">
+          <label>Category</label>
+          <select id="v_category">
+            <option value="">Select...</option>
+            <option>SEO</option>
+            <option>Paid Search / SEM</option>
+            <option>Social Media</option>
+            <option>Email / CRM</option>
+            <option>Reputation Management</option>
+            <option>Website / CMS</option>
+            <option>Video / Content</option>
+            <option>Chat / Leads</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Monthly Fee ($)</label>
+          <input type="number" id="v_fee" placeholder="0"/>
+        </div>
+        <div class="field">
+          <label>Contract Start Date</label>
+          <input type="date" id="v_start"/>
+        </div>
+        <div class="field">
+          <label>Contact Name</label>
+          <input type="text" id="v_contact_name" placeholder="John Smith"/>
+        </div>
+        <div class="field">
+          <label>Contact Email</label>
+          <input type="email" id="v_contact_email" placeholder="john@vendor.com"/>
+        </div>
+      </div>
+      <hr class="divider">
+      <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px;">Vendor Promises</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Promised Traffic Increase (%)</label>
+          <input type="number" id="v_traffic" placeholder="e.g. 15"/>
+          <div class="field-hint">Monthly organic traffic improvement</div>
+        </div>
+        <div class="field">
+          <label>Promised Cost Per Lead ($)</label>
+          <input type="number" id="v_cpl" placeholder="e.g. 25"/>
+        </div>
+        <div class="field">
+          <label>Promised Review Response (hrs)</label>
+          <input type="number" id="v_response" placeholder="e.g. 24"/>
+        </div>
+        <div class="field">
+          <label>Promised ROAS Target</label>
+          <input type="number" id="v_roas" placeholder="e.g. 4.5"/>
+          <div class="field-hint">Return on ad spend</div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="field">
+          <label>Promised Deliverables</label>
+          <textarea id="v_deliverables" placeholder="e.g. 4 blog posts per month, weekly rank reports, monthly strategy call..."></textarea>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Additional Promises</label>
+          <textarea id="v_promises" placeholder="Any other specific commitments made by this vendor..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('vendorModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVendor()">Save Vendor</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── CONFIG ──
+  const SUPABASE_URL = 'https://wfywchdnmhjdwpntnkgz.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_CYuP6U0nmcxPk9ktFfEigg_mZrShnyN';
+
+  // ── SUPABASE HELPERS ──
+  async function sbGet(table, query='') {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function sbPost(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function sbPatch(table, id, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function sbDelete(table, id) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  // ── STATE ──
+  let currentPage = 'dashboard';
+  let currentDealerId = null;
+  let editingDealerId = null;
+
+  // ── NAVIGATION ──
+  function showPage(page, dealerId=null) {
+    currentPage = page;
+    if (dealerId) currentDealerId = dealerId;
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const navMap = {'dashboard':'Dashboard','dealers':'Dealers','reports':'Monthly Reports','vendors':'Vendor Tracker','ai-visibility':'AI Visibility'};
+    document.querySelectorAll('.nav-item').forEach(el => {
+      if (el.textContent.trim() === navMap[page]) el.classList.add('active');
+    });
+    document.getElementById('topbarTitle').textContent = navMap[page] || page;
+    document.getElementById('topbarActions').innerHTML = '';
+    const content = document.getElementById('pageContent');
+    content.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0">Loading...</div>';
+    if (page === 'dashboard') renderDashboard();
+    else if (page === 'dealers') renderDealers();
+    else if (page === 'dealer-detail') renderDealerDetail(currentDealerId);
+    else if (page === 'reports') renderReports();
+    else if (page === 'vendors') renderVendors();
+    else if (page === 'ai-visibility') renderAIVisibility();
+  }
+
+  // ── DASHBOARD ──
+  async function renderDashboard() {
+    try {
+      const dealers = await sbGet('dealers', '?select=*&order=created_at.desc');
+      const activeCount = dealers.filter(d => d.status === 'active').length;
+      const reports = await sbGet('monthly_reports', '?select=*&order=created_at.desc&limit=5');
+      const vendors = await sbGet('vendors', '?select=*');
+      const totalRetainer = dealers.reduce((sum, d) => sum + (parseFloat(d.monthly_retainer) || 0), 0);
+
+      document.getElementById('pageContent').innerHTML = `
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">Active Dealers</div>
+            <div class="stat-value">${activeCount}</div>
+            <div class="stat-sub">of ${dealers.length} total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Monthly Retainer</div>
+            <div class="stat-value">$${totalRetainer.toLocaleString()}</div>
+            <div class="stat-sub">across all dealers</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Vendors Tracked</div>
+            <div class="stat-value">${vendors.length}</div>
+            <div class="stat-sub">across all dealers</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Reports Generated</div>
+            <div class="stat-value">${reports.length}</div>
+            <div class="stat-sub">all time</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="card">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Your Dealers</div>
+                <div class="section-sub">Active client roster</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openDealerModal()">+ Add</button>
+            </div>
+            ${dealers.length === 0 ? `<div class="empty"><div class="empty-icon">&#127950;</div><div class="empty-title">No dealers yet</div><div class="empty-sub">Add your first dealer to get started.</div></div>` :
+            `<div class="table-wrap"><table>
+              <tr><th>Dealer</th><th>Brand</th><th>Status</th></tr>
+              ${dealers.slice(0,8).map(d => `<tr style="cursor:pointer" onclick="showPage('dealer-detail','${d.id}')">
+                <td class="td-main">${d.name}</td>
+                <td>${d.brand || '-'}</td>
+                <td><span class="badge badge-${d.status}">${d.status}</span></td>
+              </tr>`).join('')}
+            </table></div>`}
+          </div>
+
+          <div class="card">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Recent Reports</div>
+                <div class="section-sub">Latest monthly intelligence</div>
+              </div>
+            </div>
+            ${reports.length === 0 ? `<div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">No reports yet</div><div class="empty-sub">Generate your first monthly report for a dealer.</div></div>` :
+            `<div class="table-wrap"><table>
+              <tr><th>Dealer</th><th>Month</th><th>Score</th><th>Status</th></tr>
+              ${reports.map(r => `<tr>
+                <td class="td-main">${r.dealer_id}</td>
+                <td>${r.report_month}/${r.report_year}</td>
+                <td>${r.overall_score || '-'}</td>
+                <td><span class="badge badge-${r.status}">${r.status}</span></td>
+              </tr>`).join('')}
+            </table></div>`}
+          </div>
+        </div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">Failed to load dashboard: ${e.message}</div>`;
+    }
+  }
+
+  // ── DEALERS ──
+  async function renderDealers() {
+    document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openDealerModal()">+ Add Dealer</button>`;
+    try {
+      const dealers = await sbGet('dealers', '?select=*&order=name.asc');
+      document.getElementById('pageContent').innerHTML = dealers.length === 0
+        ? `<div class="empty"><div class="empty-icon">&#127950;</div><div class="empty-title">No dealers yet</div><div class="empty-sub">Add your first dealer client to get started tracking their digital performance.</div><button class="btn btn-primary" onclick="openDealerModal()">+ Add First Dealer</button></div>`
+        : `<div class="card"><div class="table-wrap"><table>
+            <tr><th>Dealer</th><th>Brand</th><th>City</th><th>CMS</th><th>Retainer</th><th>Status</th><th></th></tr>
+            ${dealers.map(d => `<tr>
+              <td class="td-main" style="cursor:pointer" onclick="showPage('dealer-detail','${d.id}')">${d.name}</td>
+              <td>${d.brand || '-'}</td>
+              <td>${d.city || '-'}${d.state ? ', '+d.state : ''}</td>
+              <td>${d.cms_provider || '-'}</td>
+              <td>${d.monthly_retainer ? '$'+parseFloat(d.monthly_retainer).toLocaleString() : '-'}</td>
+              <td><span class="badge badge-${d.status}">${d.status}</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showPage('dealer-detail','${d.id}')">View</button></td>
+            </tr>`).join('')}
+          </table></div></div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  // ── DEALER DETAIL ──
+  async function renderDealerDetail(id) {
+    document.getElementById('topbarActions').innerHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="showPage('dealers')">&#8592; All Dealers</button>
+      <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>`;
+    try {
+      const [dealers, vendors] = await Promise.all([
+        sbGet('dealers', `?id=eq.${id}`),
+        sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`)
+      ]);
+      const d = dealers[0];
+      if (!d) { document.getElementById('pageContent').innerHTML = '<div class="empty"><div class="empty-title">Dealer not found</div></div>'; return; }
+
+      document.getElementById('topbarTitle').textContent = d.name;
+
+      const totalVendorSpend = vendors.reduce((sum, v) => sum + (parseFloat(v.monthly_fee) || 0), 0);
+
+      document.getElementById('pageContent').innerHTML = `
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('overview','${id}')">Overview</div>
+          <div class="tab" onclick="switchTab('vendors-tab','${id}')">Vendors (${vendors.length})</div>
+          <div class="tab" onclick="switchTab('reports-tab','${id}')">Reports</div>
+          <div class="tab" onclick="switchTab('benchmarks-tab','${id}')">Benchmarks</div>
+        </div>
+
+        <div id="tab-overview">
+          <div class="detail-grid">
+            <div class="detail-card"><div class="detail-label">Website</div><div class="detail-value">${d.website_url ? `<a href="${d.website_url}" target="_blank" style="color:var(--blue-light)">${d.website_url}</a>` : '-'}</div></div>
+            <div class="detail-card"><div class="detail-label">CMS Provider</div><div class="detail-value">${d.cms_provider || '-'}</div></div>
+            <div class="detail-card"><div class="detail-label">Monthly Retainer</div><div class="detail-value">${d.monthly_retainer ? '$'+parseFloat(d.monthly_retainer).toLocaleString() : '-'}</div></div>
+            <div class="detail-card"><div class="detail-label">Total Vendor Spend</div><div class="detail-value">$${totalVendorSpend.toLocaleString()}/mo across ${vendors.length} vendors</div></div>
+            <div class="detail-card"><div class="detail-label">Location</div><div class="detail-value">${[d.city, d.state].filter(Boolean).join(', ') || '-'}</div></div>
+            <div class="detail-card"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-${d.status}">${d.status}</span></div></div>
+          </div>
+          ${d.notes ? `<div class="card card-sm" style="margin-bottom:20px"><div class="detail-label" style="margin-bottom:6px">Notes</div><div style="font-size:13px;color:var(--white2);line-height:1.7">${d.notes}</div></div>` : ''}
+
+          <div class="card">
+            <div class="section-header">
+              <div><div class="section-title">Vendor Summary</div></div>
+              <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>
+            </div>
+            ${vendors.length === 0
+              ? `<div class="empty" style="padding:30px 20px"><div class="empty-icon">&#129309;</div><div class="empty-title">No vendors yet</div><div class="empty-sub">Add the vendors this dealer is paying so you can track their promises.</div></div>`
+              : `<div class="table-wrap"><table>
+                <tr><th>Vendor</th><th>Category</th><th>Monthly Fee</th><th>Status</th><th></th></tr>
+                ${vendors.map(v => `<tr>
+                  <td class="td-main">${v.vendor_name}</td>
+                  <td>${v.category || '-'}</td>
+                  <td>${v.monthly_fee ? '$'+parseFloat(v.monthly_fee).toLocaleString() : '-'}</td>
+                  <td><span class="badge badge-${v.status}">${v.status}</span></td>
+                  <td><button class="btn btn-ghost btn-sm" onclick="showVendorDetail('${v.id}','${id}')">Promises</button></td>
+                </tr>`).join('')}
+              </table></div>`}
+          </div>
+        </div>
+
+        <div id="tab-vendors-tab" style="display:none">
+          ${vendors.length === 0
+            ? `<div class="empty"><div class="empty-icon">&#129309;</div><div class="empty-title">No vendors yet</div><button class="btn btn-primary" onclick="openVendorModal('${id}')">+ Add First Vendor</button></div>`
+            : vendors.map(v => renderVendorCard(v)).join('')}
+        </div>
+
+        <div id="tab-reports-tab" style="display:none">
+          <div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">Reports coming soon</div><div class="empty-sub">Monthly report generation will be available in the next build.</div></div>
+        </div>
+
+        <div id="tab-benchmarks-tab" style="display:none">
+          <div class="empty"><div class="empty-icon">&#128200;</div><div class="empty-title">Benchmarks coming soon</div><div class="empty-sub">Month-over-month metric tracking will be available in the next build.</div></div>
+        </div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  function renderVendorCard(v) {
+    const promises = [
+      v.promised_traffic_increase ? `Organic traffic increase: ${v.promised_traffic_increase}%` : null,
+      v.promised_cost_per_lead ? `Cost per lead: $${v.promised_cost_per_lead}` : null,
+      v.promised_review_response_hours ? `Review response time: ${v.promised_review_response_hours} hours` : null,
+      v.promised_roas ? `ROAS target: ${v.promised_roas}x` : null,
+      v.promised_deliverables ? `Deliverables: ${v.promised_deliverables}` : null,
+      v.additional_promises ? `Additional: ${v.additional_promises}` : null,
+    ].filter(Boolean);
+
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-family:var(--font-h);font-size:13px;font-weight:700">${v.vendor_name}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">${v.category || 'Uncategorized'} &middot; ${v.monthly_fee ? '$'+parseFloat(v.monthly_fee).toLocaleString()+'/mo' : 'Fee not set'}</div>
+        </div>
+        <span class="badge badge-${v.status}">${v.status}</span>
+      </div>
+      ${v.contact_name || v.contact_email ? `<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Contact: ${[v.contact_name, v.contact_email].filter(Boolean).join(' &middot; ')}</div>` : ''}
+      ${promises.length > 0 ? `
+        <div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px">Stated Promises</div>
+        ${promises.map(p => `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--white2)"><span style="color:var(--warning)">&#128221;</span>${p}</div>`).join('')}
+      ` : `<div style="font-size:12px;color:var(--muted)">No promises recorded yet.</div>`}
+    </div>`;
+  }
+
+  function switchTab(tabId, dealerId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    ['overview','vendors-tab','reports-tab','benchmarks-tab'].forEach(t => {
+      const el = document.getElementById('tab-'+t);
+      if (el) el.style.display = t === tabId ? 'block' : 'none';
+    });
+  }
+
+  // ── REPORTS PAGE ──
+  async function renderReports() {
+    try {
+      const dealers = await sbGet('dealers', '?select=*&status=eq.active&order=name.asc');
+      document.getElementById('pageContent').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">&#128202;</div>
+          <div class="empty-title">Monthly Report Generator</div>
+          <div class="empty-sub">Select a dealer and generate their monthly intelligence report. This feature is coming in the next build session.</div>
+        </div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  // ── VENDORS PAGE ──
+  async function renderVendors() {
+    try {
+      const vendors = await sbGet('vendors', '?select=*,dealers(name)&order=vendor_name.asc');
+      document.getElementById('pageContent').innerHTML = vendors.length === 0
+        ? `<div class="empty"><div class="empty-icon">&#129309;</div><div class="empty-title">No vendors tracked yet</div><div class="empty-sub">Add vendors through a dealer's profile to start tracking their promises.</div></div>`
+        : `<div class="card"><div class="table-wrap"><table>
+            <tr><th>Vendor</th><th>Dealer</th><th>Category</th><th>Monthly Fee</th><th>Status</th></tr>
+            ${vendors.map(v => `<tr>
+              <td class="td-main">${v.vendor_name}</td>
+              <td>${v.dealers?.name || '-'}</td>
+              <td>${v.category || '-'}</td>
+              <td>${v.monthly_fee ? '$'+parseFloat(v.monthly_fee).toLocaleString() : '-'}</td>
+              <td><span class="badge badge-${v.status}">${v.status}</span></td>
+            </tr>`).join('')}
+          </table></div></div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  // ── AI VISIBILITY PAGE ──
+  async function renderAIVisibility() {
+    document.getElementById('pageContent').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">&#129302;</div>
+        <div class="empty-title">AI Visibility Tracker</div>
+        <div class="empty-sub">Track how each dealer appears in Claude, ChatGPT, Gemini, and Perplexity searches month over month. Coming in the next build session.</div>
+      </div>`;
+  }
+
+  // ── MODALS ──
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function openDealerModal(dealerId=null) {
+    editingDealerId = dealerId;
+    document.getElementById('dealerModalTitle').textContent = dealerId ? 'Edit Dealer' : 'Add New Dealer';
+    ['d_name','d_brand','d_city','d_state','d_website','d_gbp','d_notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('d_cms').value = '';
+    document.getElementById('d_retainer').value = '';
+    document.getElementById('d_start').value = '';
+    document.getElementById('d_status').value = 'active';
+    document.getElementById('dealerAlert').style.display = 'none';
+    openModal('dealerModal');
+  }
+
+  let currentVendorDealerId = null;
+  function openVendorModal(dealerId) {
+    currentVendorDealerId = dealerId;
+    ['v_name','v_fee','v_contact_name','v_contact_email','v_deliverables','v_promises'].forEach(id => document.getElementById(id).value = '');
+    ['v_traffic','v_cpl','v_response','v_roas'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('v_category').value = '';
+    document.getElementById('v_start').value = '';
+    document.getElementById('vendorAlert').style.display = 'none';
+    openModal('vendorModal');
+  }
+
+  function showVendorDetail(vendorId, dealerId) {
+    showPage('dealer-detail', dealerId);
+  }
+
+  // ── SAVE DEALER ──
+  async function saveDealer() {
+    const name = document.getElementById('d_name').value.trim();
+    if (!name) { alert('Dealer name is required.'); return; }
+    const data = {
+      name, brand: document.getElementById('d_brand').value.trim(),
+      city: document.getElementById('d_city').value.trim(),
+      state: document.getElementById('d_state').value.trim(),
+      website_url: document.getElementById('d_website').value.trim(),
+      gbp_url: document.getElementById('d_gbp').value.trim(),
+      cms_provider: document.getElementById('d_cms').value,
+      monthly_retainer: parseFloat(document.getElementById('d_retainer').value) || null,
+      start_date: document.getElementById('d_start').value || null,
+      status: document.getElementById('d_status').value,
+      notes: document.getElementById('d_notes').value.trim(),
+    };
+    try {
+      await sbPost('dealers', data);
+      const alert = document.getElementById('dealerAlert');
+      alert.textContent = 'Dealer saved successfully!';
+      alert.className = 'alert alert-success';
+      alert.style.display = 'block';
+      setTimeout(() => { closeModal('dealerModal'); renderDealers(); }, 1000);
+    } catch(e) {
+      const alert = document.getElementById('dealerAlert');
+      alert.textContent = 'Error saving dealer: ' + e.message;
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+    }
+  }
+
+  // ── SAVE VENDOR ──
+  async function saveVendor() {
+    const name = document.getElementById('v_name').value.trim();
+    if (!name) { alert('Vendor name is required.'); return; }
+    const data = {
+      dealer_id: currentVendorDealerId,
+      vendor_name: name,
+      category: document.getElementById('v_category').value,
+      monthly_fee: parseFloat(document.getElementById('v_fee').value) || null,
+      contract_start: document.getElementById('v_start').value || null,
+      contact_name: document.getElementById('v_contact_name').value.trim(),
+      contact_email: document.getElementById('v_contact_email').value.trim(),
+      promised_traffic_increase: parseFloat(document.getElementById('v_traffic').value) || null,
+      promised_cost_per_lead: parseFloat(document.getElementById('v_cpl').value) || null,
+      promised_review_response_hours: parseFloat(document.getElementById('v_response').value) || null,
+      promised_roas: parseFloat(document.getElementById('v_roas').value) || null,
+      promised_deliverables: document.getElementById('v_deliverables').value.trim(),
+      additional_promises: document.getElementById('v_promises').value.trim(),
+      status: 'active',
+    };
+    try {
+      await sbPost('vendors', data);
+      const alert = document.getElementById('vendorAlert');
+      alert.textContent = 'Vendor saved successfully!';
+      alert.className = 'alert alert-success';
+      alert.style.display = 'block';
+      setTimeout(() => { closeModal('vendorModal'); renderDealerDetail(currentVendorDealerId); }, 1000);
+    } catch(e) {
+      const alert = document.getElementById('vendorAlert');
+      alert.textContent = 'Error saving vendor: ' + e.message;
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+    }
+  }
+
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+  });
+
+  // ── INIT ──
+  showPage('dashboard');
+</script>
+</body>
+</html>
