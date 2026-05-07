@@ -183,6 +183,7 @@
     <div class="nav-item" onclick="showPage('reports')"><span class="nav-icon">&#128202;</span>Monthly Reports</div>
     <div class="nav-item" onclick="showPage('vendors')"><span class="nav-icon">&#129309;</span>Vendor Tracker</div>
     <div class="nav-item" onclick="showPage('ai-visibility')"><span class="nav-icon">&#129302;</span>AI Visibility</div>
+    <div class="nav-item" onclick="showPage('competitors')"><span class="nav-icon">&#127942;</span>Competitors</div>
   </nav>
   <div class="sidebar-footer">
     Dealer Superhero v1.0<br>Built for Shaun
@@ -275,6 +276,55 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('dealerModal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveDealer()">Save Dealer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD COMPETITOR MODAL -->
+<div class="modal-overlay" id="competitorModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Competitor</div>
+      <button class="modal-close" onclick="closeModal('competitorModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert" id="competitorAlert"></div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Competitor Name *</label>
+          <input type="text" id="c_name" placeholder="Columbine Ford"/>
+        </div>
+        <div class="field">
+          <label>Brand</label>
+          <input type="text" id="c_brand" placeholder="Ford"/>
+        </div>
+        <div class="field">
+          <label>Website URL</label>
+          <input type="url" id="c_website" placeholder="https://"/>
+        </div>
+        <div class="field">
+          <label>Google Business Profile URL</label>
+          <input type="url" id="c_gbp" placeholder="https://maps.app.goo.gl/..."/>
+        </div>
+        <div class="field">
+          <label>Priority</label>
+          <select id="c_order">
+            <option value="1">1 — Primary Competitor</option>
+            <option value="2">2 — Secondary Competitor</option>
+            <option value="3">3 — Third Competitor</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="c_notes" placeholder="e.g. Consistently outranks on paid search, strong review volume, recently redesigned website..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('competitorModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCompetitor()">Save Competitor</button>
     </div>
   </div>
 </div>
@@ -427,7 +477,7 @@
     currentPage = page;
     if (dealerId) currentDealerId = dealerId;
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const navMap = {'dashboard':'Dashboard','dealers':'Dealers','reports':'Monthly Reports','vendors':'Vendor Tracker','ai-visibility':'AI Visibility'};
+    const navMap = {'dashboard':'Dashboard','dealers':'Dealers','reports':'Monthly Reports','vendors':'Vendor Tracker','ai-visibility':'AI Visibility','competitors':'Competitor Intelligence','dealer-detail':'Dealer Detail'};
     document.querySelectorAll('.nav-item').forEach(el => {
       if (el.textContent.trim() === navMap[page]) el.classList.add('active');
     });
@@ -441,6 +491,7 @@
     else if (page === 'reports') renderReports();
     else if (page === 'vendors') renderVendors();
     else if (page === 'ai-visibility') renderAIVisibility();
+    else if (page === 'competitors') renderCompetitorsPage();
   }
 
   // ── DASHBOARD ──
@@ -548,11 +599,13 @@
   async function renderDealerDetail(id) {
     document.getElementById('topbarActions').innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="showPage('dealers')">&#8592; All Dealers</button>
+      <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${id}')">+ Competitor</button>
       <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>`;
     try {
-      const [dealers, vendors] = await Promise.all([
+      const [dealers, vendors, competitors] = await Promise.all([
         sbGet('dealers', `?id=eq.${id}`),
-        sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`)
+        sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`),
+        sbGet('competitors', `?dealer_id=eq.${id}&order=display_order.asc`)
       ]);
       const d = dealers[0];
       if (!d) { document.getElementById('pageContent').innerHTML = '<div class="empty"><div class="empty-title">Dealer not found</div></div>'; return; }
@@ -565,6 +618,7 @@
         <div class="tabs">
           <div class="tab active" onclick="switchTab('overview','${id}')">Overview</div>
           <div class="tab" onclick="switchTab('vendors-tab','${id}')">Vendors (${vendors.length})</div>
+          <div class="tab" onclick="switchTab('competitors-tab','${id}')">Competitors (${competitors.length})</div>
           <div class="tab" onclick="switchTab('reports-tab','${id}')">Reports</div>
           <div class="tab" onclick="switchTab('benchmarks-tab','${id}')">Benchmarks</div>
         </div>
@@ -606,6 +660,12 @@
             : vendors.map(v => renderVendorCard(v)).join('')}
         </div>
 
+        <div id="tab-competitors-tab" style="display:none">
+          ${competitors.length === 0
+            ? `<div class="empty"><div class="empty-icon">&#127942;</div><div class="empty-title">No competitors tracked yet</div><div class="empty-sub">Add up to 3 competitors to start tracking who is beating this dealer and where.</div><button class="btn btn-primary" onclick="openCompetitorModal('${id}')">+ Add First Competitor</button></div>`
+            : competitors.map(c => renderCompetitorCard(c)).join('')}
+        </div>
+
         <div id="tab-reports-tab" style="display:none">
           <div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">Reports coming soon</div><div class="empty-sub">Monthly report generation will be available in the next build.</div></div>
         </div>
@@ -615,6 +675,79 @@
         </div>`;
     } catch(e) {
       document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  function renderCompetitorCard(c) {
+    const priority = c.display_order === 1 ? 'Primary' : c.display_order === 2 ? 'Secondary' : 'Third';
+    const priorityColor = c.display_order === 1 ? 'var(--danger)' : c.display_order === 2 ? 'var(--warning)' : 'var(--muted)';
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-family:var(--font-h);font-size:13px;font-weight:700">${c.name}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">${c.brand || ''}</div>
+        </div>
+        <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${priorityColor};background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:100px;border:1px solid ${priorityColor}">${priority} Competitor</span>
+      </div>
+      ${c.website_url ? `<div style="font-size:12px;margin-bottom:8px"><a href="${c.website_url}" target="_blank" style="color:var(--blue-light)">${c.website_url}</a></div>` : ''}
+      ${c.gbp_url ? `<div style="font-size:12px;margin-bottom:8px"><a href="${c.gbp_url}" target="_blank" style="color:var(--blue-light)">Google Business Profile</a></div>` : ''}
+      ${c.notes ? `<div style="font-size:12px;color:var(--white2);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);line-height:1.6">${c.notes}</div>` : ''}
+    </div>`;
+  }
+
+  async function renderCompetitorsPage() {
+    try {
+      const competitors = await sbGet('competitors', '?select=*,dealers(name)&order=display_order.asc');
+      document.getElementById('pageContent').innerHTML = competitors.length === 0
+        ? `<div class="empty"><div class="empty-icon">&#127942;</div><div class="empty-title">No competitors tracked yet</div><div class="empty-sub">Add competitors through a dealer's profile to start tracking who is beating them and where.</div></div>`
+        : `<div class="card"><div class="table-wrap"><table>
+            <tr><th>Competitor</th><th>Dealer</th><th>Priority</th><th>Website</th></tr>
+            ${competitors.map(c => `<tr>
+              <td class="td-main">${c.name}</td>
+              <td>${c.dealers?.name || '-'}</td>
+              <td>${c.display_order === 1 ? 'Primary' : c.display_order === 2 ? 'Secondary' : 'Third'}</td>
+              <td>${c.website_url ? `<a href="${c.website_url}" target="_blank" style="color:var(--blue-light)">View site</a>` : '-'}</td>
+            </tr>`).join('')}
+          </table></div></div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  let currentCompetitorDealerId = null;
+  function openCompetitorModal(dealerId) {
+    currentCompetitorDealerId = dealerId;
+    ['c_name','c_brand','c_website','c_gbp','c_notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('c_order').value = '1';
+    const alert = document.getElementById('competitorAlert');
+    alert.style.display = 'none';
+    openModal('competitorModal');
+  }
+
+  async function saveCompetitor() {
+    const name = document.getElementById('c_name').value.trim();
+    if (!name) { alert('Competitor name is required.'); return; }
+    const data = {
+      dealer_id: currentCompetitorDealerId,
+      name,
+      brand: document.getElementById('c_brand').value.trim(),
+      website_url: document.getElementById('c_website').value.trim(),
+      gbp_url: document.getElementById('c_gbp').value.trim(),
+      notes: document.getElementById('c_notes').value.trim(),
+      display_order: parseInt(document.getElementById('c_order').value),
+    };
+    try {
+      await sbPost('competitors', data);
+      const alert = document.getElementById('competitorAlert');
+      alert.textContent = 'Competitor saved successfully!';
+      alert.className = 'alert alert-success';
+      alert.style.display = 'block';
+      setTimeout(() => { closeModal('competitorModal'); renderDealerDetail(currentCompetitorDealerId); }, 1000);
+    } catch(e) {
+      const alert = document.getElementById('competitorAlert');
+      alert.textContent = 'Error: ' + e.message;
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
     }
   }
 
@@ -647,7 +780,7 @@
   function switchTab(tabId, dealerId) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     event.target.classList.add('active');
-    ['overview','vendors-tab','reports-tab','benchmarks-tab'].forEach(t => {
+    ['overview','vendors-tab','competitors-tab','reports-tab','benchmarks-tab'].forEach(t => {
       const el = document.getElementById('tab-'+t);
       if (el) el.style.display = t === tabId ? 'block' : 'none';
     });
