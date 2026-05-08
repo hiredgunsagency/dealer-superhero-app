@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dealer Superhero | Intelligence Platform</title>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700;800;900&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     :root{
@@ -34,7 +35,7 @@
     .nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:14px;color:var(--white2);cursor:pointer;transition:all 0.2s;border-left:2px solid transparent;}
     .nav-item:hover{color:var(--white);background:rgba(255,255,255,0.04);}
     .nav-item.active{color:var(--blue-light);background:rgba(65,105,225,0.08);border-left-color:var(--blue);}
-    .nav-icon{font-size:15px;width:20px;text-align:center;}
+    .nav-icon{width:18px;height:18px;flex-shrink:0;stroke:currentColor;}
     .sidebar-footer{padding:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
 
     /* MAIN */
@@ -171,13 +172,13 @@
   </div>
   <nav class="nav">
     <div class="nav-section">Main</div>
-    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">&#127968;</span>Dashboard</div>
-    <div class="nav-item" onclick="showPage('dealers')"><span class="nav-icon">&#127950;</span>Dealers</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard" class="nav-icon"></i>Dashboard</div>
+    <div class="nav-item" onclick="showPage('dealers')"><i data-lucide="building-2" class="nav-icon"></i>Dealers</div>
     <div class="nav-section">Tools</div>
-    <div class="nav-item" onclick="showPage('reports')"><span class="nav-icon">&#128202;</span>Monthly Reports</div>
-    <div class="nav-item" onclick="showPage('vendors')"><span class="nav-icon">&#129309;</span>Vendor Tracker</div>
-    <div class="nav-item" onclick="showPage('ai-visibility')"><span class="nav-icon">&#129302;</span>AI Visibility</div>
-    <div class="nav-item" onclick="showPage('competitors')"><span class="nav-icon">&#127942;</span>Competitors</div>
+    <div class="nav-item" onclick="showPage('reports')"><i data-lucide="bar-chart-2" class="nav-icon"></i>Monthly Reports</div>
+    <div class="nav-item" onclick="showPage('vendors')"><i data-lucide="handshake" class="nav-icon"></i>Vendor Tracker</div>
+    <div class="nav-item" onclick="showPage('ai-visibility')"><i data-lucide="bot" class="nav-icon"></i>AI Visibility</div>
+    <div class="nav-item" onclick="showPage('competitors')"><i data-lucide="swords" class="nav-icon"></i>Competitors</div>
   </nav>
   <div class="sidebar-footer">
     Dealer Superhero v1.0<br>Built for Shaun
@@ -486,6 +487,7 @@
     else if (page === 'vendors') renderVendors();
     else if (page === 'ai-visibility') renderAIVisibility();
     else if (page === 'competitors') renderCompetitorsPage();
+    setTimeout(() => lucide.createIcons(), 100);
   }
 
   // ── DASHBOARD ──
@@ -932,6 +934,7 @@
 
   // ── INIT ──
   showPage('dashboard');
+  lucide.createIcons();
 </script>
 </body>
 </html>
