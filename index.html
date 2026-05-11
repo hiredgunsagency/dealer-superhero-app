@@ -80,6 +80,9 @@
     .badge-draft{background:var(--warning-bg);color:var(--warning);}
     .badge-paused{background:rgba(104,104,160,0.15);color:var(--muted);}
     .badge-review{background:var(--danger-bg);color:var(--danger);}
+    .b-pass{background:#22C55E;color:#fff;font-weight:800;}
+    .b-warn{background:#F59E0B;color:#fff;font-weight:800;}
+    .b-fail{background:#EF4444;color:#fff;font-weight:800;}
 
     /* FORMS */
     .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
@@ -633,7 +636,7 @@
                   <td>${v.category || '-'}</td>
                   <td>${v.monthly_fee ? '$'+parseFloat(v.monthly_fee).toLocaleString() : '-'}</td>
                   <td><span class="badge badge-${v.status}">${v.status}</span></td>
-                  <td><button class="btn btn-ghost btn-sm" onclick="showVendorDetail('${v.id}','${id}')">Promises</button></td>
+                  <td><button class="btn btn-ghost btn-sm" onclick="showVendorDetail('${v.id}','${id}')">Promises</button> <button class="btn btn-danger btn-sm" onclick="deleteVendor('${v.id}','${id}')">Delete</button></td>
                 </tr>`).join('')}
               </table></div>`}
           </div>
@@ -964,6 +967,16 @@
     }
   }
 
+  async function deleteVendor(vendorId, dealerId) {
+    if (!confirm('Delete this vendor? This will also remove their attribution data. This cannot be undone.')) return;
+    try {
+      await sbDelete('vendors', vendorId);
+      renderDealerDetail(dealerId);
+    } catch(e) {
+      alert('Error deleting vendor: ' + e.message);
+    }
+  }
+
   function renderVendorCard(v) {
     const promises = [
       v.promised_traffic_increase ? `Organic traffic increase: ${v.promised_traffic_increase}%` : null,
@@ -980,7 +993,10 @@
           <div style="font-family:var(--font-h);font-size:13px;font-weight:700">${v.vendor_name}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px">${v.category || 'Uncategorized'} &middot; ${v.monthly_fee ? '$'+parseFloat(v.monthly_fee).toLocaleString()+'/mo' : 'Fee not set'}</div>
         </div>
-        <span class="badge badge-${v.status}">${v.status}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge badge-${v.status}">${v.status}</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteVendor('${v.id}','${v.dealer_id}')">Delete</button>
+        </div>
       </div>
       ${v.contact_name || v.contact_email ? `<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Contact: ${[v.contact_name, v.contact_email].filter(Boolean).join(' &middot; ')}</div>` : ''}
       ${promises.length > 0 ? `
@@ -1056,14 +1072,20 @@
             ${reports.length === 0
               ? `<div class="empty" style="padding:30px 0"><div class="empty-icon" style="font-size:32px">&#128202;</div><div class="empty-title">No reports yet</div><div class="empty-sub">Generate your first report to get started.</div></div>`
               : `<div class="table-wrap"><table>
-                  <tr><th>Dealer</th><th>Period</th><th>Score</th><th>Status</th><th></th></tr>
-                  ${reports.map(r => `<tr>
-                    <td class="td-main">${r.dealers?.name || '-'}</td>
-                    <td>${months[r.report_month-1]} ${r.report_year}</td>
-                    <td>${r.overall_score ? Math.round(r.overall_score)+'/100' : '-'}</td>
-                    <td><span class="badge badge-${r.status}">${r.status}</span></td>
-                    <td><button class="btn btn-ghost btn-sm" onclick="loadSavedReport('${r.id}')">View</button></td>
-                  </tr>`).join('')}
+                  <tr><th>Report</th><th>Period</th><th>Score</th><th>Grade</th><th>Status</th><th></th></tr>
+                  ${reports.map(r => {
+                    const gradeColors = {'A':'#22C55E','B':'#7BC67E','C':'#F59E0B','D':'#F97316','F':'#EF4444'};
+                    const gc = gradeColors[r.overall_score >= 85 ? 'A' : r.overall_score >= 70 ? 'B' : r.overall_score >= 55 ? 'C' : r.overall_score >= 40 ? 'D' : 'F'] || 'var(--muted)';
+                    const grade = r.overall_score >= 85 ? 'A' : r.overall_score >= 70 ? 'B' : r.overall_score >= 55 ? 'C' : r.overall_score >= 40 ? 'D' : r.overall_score ? 'F' : '—';
+                    return `<tr>
+                      <td class="td-main">${r.dealers?.name || 'Unknown Dealer'}</td>
+                      <td>${months[r.report_month-1]} ${r.report_year}</td>
+                      <td>${r.overall_score ? Math.round(r.overall_score)+'/100' : '—'}</td>
+                      <td><span style="font-family:var(--font-h);font-size:14px;font-weight:900;color:${gc}">${grade}</span></td>
+                      <td><span class="badge badge-${r.status}">${r.status}</span></td>
+                      <td><button class="btn btn-ghost btn-sm" onclick="loadSavedReport('${r.id}')">View</button></td>
+                    </tr>`;
+                  }).join('')}
                 </table></div>`}
           </div>
         </div>
@@ -1202,7 +1224,7 @@
     const monthName = r.monthName || months[(r.month||1)-1];
     const sc = scoreColor(r.overallScore);
 
-    const gradeColors = {'A':'#22C55E','B':'#01B0F1','C':'#F59E0B','D':'#F97316','F':'#EF4444'};
+    const gradeColors = {'A':'#22C55E','B':'#7BC67E','C':'#F59E0B','D':'#F97316','F':'#EF4444'};
     const gc = gradeColors[r.grade] || '#6868A0';
 
     // Channel scores bar
@@ -1212,13 +1234,13 @@
     const channelBars = Object.entries(channelNames).map(([key,name]) => {
       const score = channelScores[key] || 0;
       const c = scoreColor(score);
-      return `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:12px;color:var(--white2)">${name}</span>
-          <span style="font-family:var(--font-h);font-size:11px;font-weight:700;color:${c}">${score}</span>
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:14px;color:var(--white2)">${name}</span>
+          <span style="font-family:var(--font-h);font-size:13px;font-weight:700;color:${c}">${score}</span>
         </div>
-        <div style="height:5px;background:var(--border);border-radius:3px">
-          <div style="height:5px;border-radius:3px;width:${score}%;background:${c}"></div>
+        <div style="height:6px;background:var(--border);border-radius:3px">
+          <div style="height:6px;border-radius:3px;width:${score}%;background:${c}"></div>
         </div>
       </div>`;
     }).join('');
@@ -1226,19 +1248,19 @@
     // Competitive position
     const compHtml = (r.competitivePosition?.competitors || []).map(c => {
       const urgencyColor = c.urgency === 'high' ? 'var(--danger)' : c.urgency === 'medium' ? 'var(--warning)' : 'var(--success)';
-      return `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-family:var(--font-h);font-size:12px;font-weight:700">${c.name}</div>
-          <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${urgencyColor};border:1px solid ${urgencyColor};padding:2px 8px;border-radius:100px">${c.urgency} urgency</span>
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-family:var(--font-h);font-size:14px;font-weight:700">${c.name}</div>
+          <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:${urgencyColor};border:1px solid ${urgencyColor};padding:3px 10px;border-radius:100px">${c.urgency} urgency</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <div style="font-size:10px;font-weight:600;color:var(--danger);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">They're winning</div>
-            ${(c.whereTheyAreWinning||[]).map(w => `<div style="font-size:12px;color:var(--white2);padding:3px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}
+            <div style="font-size:11px;font-weight:700;color:var(--danger);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">They're winning</div>
+            ${(c.whereTheyAreWinning||[]).map(w => `<div style="font-size:14px;color:var(--white2);padding:5px 0;border-bottom:1px solid var(--border);line-height:1.5">${w}</div>`).join('')}
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;color:var(--success);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">You're winning</div>
-            ${(c.whereYouAreWinning||[]).map(w => `<div style="font-size:12px;color:var(--white2);padding:3px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}
+            <div style="font-size:11px;font-weight:700;color:var(--success);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">You're winning</div>
+            ${(c.whereYouAreWinning||[]).map(w => `<div style="font-size:14px;color:var(--white2);padding:5px 0;border-bottom:1px solid var(--border);line-height:1.5">${w}</div>`).join('')}
           </div>
         </div>
       </div>`;
@@ -1250,17 +1272,17 @@
       const fh = (ch.findings||[]).map(f => {
         const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
         const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
-        return `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px;color:var(--white2);align-items:flex-start"><span class="badge ${bc}" style="margin-top:1px">${lb}</span><span>${f.text}</span></div>`;
+        return `<div style="display:flex;gap:10px;margin-bottom:8px;font-size:14px;color:var(--white2);align-items:flex-start;line-height:1.6"><span class="badge ${bc}" style="margin-top:2px;flex-shrink:0">${lb}</span><span>${f.text}</span></div>`;
       }).join('');
       return `<div class="card card-sm" style="margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-family:var(--font-h);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;flex:1">${ch.name}</span>
-          <span style="font-family:var(--font-h);font-size:13px;font-weight:800;color:${cc}">${ch.score}/100</span>
+          <span style="font-family:var(--font-h);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;flex:1">${ch.name}</span>
+          <span style="font-family:var(--font-h);font-size:15px;font-weight:800;color:${cc}">${ch.score}/100</span>
         </div>
-        <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px">
-          <div style="height:4px;border-radius:2px;width:${ch.score}%;background:${cc}"></div>
+        <div style="height:5px;background:var(--border);border-radius:2px;margin-bottom:12px">
+          <div style="height:5px;border-radius:2px;width:${ch.score}%;background:${cc}"></div>
         </div>
-        ${ch.summary ? `<div style="font-size:13px;color:var(--white2);margin-bottom:10px;line-height:1.6">${ch.summary}</div>` : ''}
+        ${ch.summary ? `<div style="font-size:15px;color:var(--white2);margin-bottom:12px;line-height:1.7">${ch.summary}</div>` : ''}
         ${fh}
       </div>`;
     }).join('');
@@ -1272,17 +1294,17 @@
       const fh = (v.findings||[]).map(f => {
         const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
         const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
-        return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:12px;color:var(--white2);align-items:flex-start"><span class="badge ${bc}" style="margin-top:1px">${lb}</span><span>${f.text}</span></div>`;
+        return `<div style="display:flex;gap:10px;margin-bottom:8px;font-size:14px;color:var(--white2);align-items:flex-start;line-height:1.6"><span class="badge ${bc}" style="margin-top:2px;flex-shrink:0">${lb}</span><span>${f.text}</span></div>`;
       }).join('');
-      return `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div>
-            <div style="font-family:var(--font-h);font-size:12px;font-weight:700">${v.vendorName}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${v.category} · $${(v.monthlyFee||0).toLocaleString()}/mo</div>
+            <div style="font-family:var(--font-h);font-size:14px;font-weight:700">${v.vendorName}</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:3px">${v.category} · $${(v.monthlyFee||0).toLocaleString()}/mo</div>
           </div>
-          <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:2px 10px;border-radius:100px;text-transform:uppercase">${v.verdict}</span>
+          <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:${vc};border:1px solid ${vc};padding:3px 12px;border-radius:100px;text-transform:uppercase">${v.verdict}</span>
         </div>
-        ${v.summary ? `<div style="font-size:12px;color:var(--white2);margin-bottom:10px;line-height:1.6">${v.summary}</div>` : ''}
+        ${v.summary ? `<div style="font-size:15px;color:var(--white2);margin-bottom:12px;line-height:1.7">${v.summary}</div>` : ''}
         ${fh}
       </div>`;
     }).join('');
@@ -1293,20 +1315,20 @@
     const actionHtml = (r.actionPlan || []).map((a, i) => {
       const pc = a.priority==='high'?'pri-high':a.priority==='medium'?'pri-medium':'pri-low';
       const ownerColor = a.owner==='dealer'?'var(--blue-light)':a.owner==='vendor'?'var(--warning)':'var(--white2)';
-      return `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px;margin-bottom:12px">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
-          <div style="font-family:var(--font-h);font-size:18px;font-weight:900;color:var(--muted);flex-shrink:0;line-height:1;margin-top:2px">${String(i+1).padStart(2,'0')}</div>
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:18px 20px;margin-bottom:14px">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="font-family:var(--font-h);font-size:22px;font-weight:900;color:var(--muted);flex-shrink:0;line-height:1;margin-top:2px">${String(i+1).padStart(2,'0')}</div>
           <div style="flex:1">
-            <div style="font-family:var(--font-h);font-size:13px;font-weight:700;margin-bottom:6px">${a.title}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-              <span class="rec-pri ${pc}">${a.priority}</span>
-              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${effortIcons[a.effort]} ${a.effort?.replace('-',' ')}</span>
-              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${investIcons[a.investment]} ${a.investment}</span>
-              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:${ownerColor}">Owner: ${a.owner}</span>
+            <div style="font-family:var(--font-h);font-size:15px;font-weight:700;margin-bottom:8px">${a.title}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+              <span class="rec-pri ${pc}" style="font-size:10px;padding:3px 10px">${a.priority}</span>
+              <span style="font-family:var(--font-h);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${effortIcons[a.effort]} ${a.effort?.replace('-',' ')}</span>
+              <span style="font-family:var(--font-h);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${investIcons[a.investment]} ${a.investment}</span>
+              <span style="font-family:var(--font-h);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;background:rgba(255,255,255,0.06);color:${ownerColor}">Owner: ${a.owner}</span>
             </div>
-            <div style="font-size:13px;color:var(--white2);line-height:1.65;margin-bottom:8px">${a.description}</div>
-            ${a.investmentDetail ? `<div style="font-size:12px;color:var(--blue-light);margin-bottom:6px">Investment: ${a.investmentDetail}</div>` : ''}
-            ${a.impact ? `<div style="font-size:12px;color:var(--success)">Expected: ${a.impact}</div>` : ''}
+            <div style="font-size:15px;color:var(--white2);line-height:1.7;margin-bottom:10px">${a.description}</div>
+            ${a.investmentDetail ? `<div style="font-size:14px;color:var(--blue-light);margin-bottom:8px">Investment: ${a.investmentDetail}</div>` : ''}
+            ${a.impact ? `<div style="font-size:14px;color:var(--success)">Expected: ${a.impact}</div>` : ''}
           </div>
         </div>
       </div>`;
@@ -1314,7 +1336,7 @@
 
     document.getElementById('reportOutput').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--white2)">
+        <div style="font-family:var(--font-h);font-size:12px;font-weight:700;color:var(--white2)">
           ${r.dealer?.name} &nbsp;·&nbsp; ${monthName} ${r.year} Intelligence Report
         </div>
         <div style="display:flex;gap:8px">
@@ -1325,63 +1347,63 @@
       <!-- REPORT HEADER -->
       <div class="card" style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
-          <div style="width:88px;height:88px;border-radius:50%;border:3px solid ${gc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
-            <div style="font-family:var(--font-h);font-size:36px;font-weight:900;color:${gc};line-height:1">${r.grade}</div>
-            <div style="font-size:9px;color:${gc};opacity:0.7;letter-spacing:0.04em">GRADE</div>
+          <div style="width:96px;height:96px;border-radius:50%;border:3px solid ${gc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-family:var(--font-h);font-size:40px;font-weight:900;color:${gc};line-height:1">${r.grade}</div>
+            <div style="font-size:10px;color:${gc};opacity:0.7;letter-spacing:0.04em">GRADE</div>
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:4px">${r.dealer?.name}</div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${r.dealer?.brand || ''} &nbsp;·&nbsp; ${[r.dealer?.city, r.dealer?.state].filter(Boolean).join(', ')} &nbsp;·&nbsp; Overall Score: ${r.overallScore}/100</div>
-            <div style="font-size:14px;color:var(--white2);line-height:1.75">${r.executiveSummary}</div>
+            <div style="font-family:var(--font-h);font-size:16px;font-weight:700;margin-bottom:5px">${r.dealer?.name}</div>
+            <div style="font-size:14px;color:var(--muted);margin-bottom:12px">${r.dealer?.brand || ''} &nbsp;·&nbsp; ${[r.dealer?.city, r.dealer?.state].filter(Boolean).join(', ')} &nbsp;·&nbsp; Overall Score: ${r.overallScore}/100</div>
+            <div style="font-size:15px;color:var(--white2);line-height:1.8">${r.executiveSummary}</div>
           </div>
-          <div style="min-width:220px">${channelBars}</div>
+          <div style="min-width:240px">${channelBars}</div>
         </div>
       </div>
 
       <!-- COMPETITIVE POSITION -->
       ${r.competitivePosition ? `<div class="card" style="margin-bottom:16px">
-        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);margin-bottom:10px">Competitive Position</div>
-        <div style="font-size:14px;color:var(--white2);line-height:1.7;margin-bottom:16px">${r.competitivePosition.summary}</div>
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);margin-bottom:12px">Competitive Position</div>
+        <div style="font-size:15px;color:var(--white2);line-height:1.8;margin-bottom:18px">${r.competitivePosition.summary}</div>
         ${compHtml}
       </div>` : ''}
 
       <!-- CHANNEL ANALYSIS -->
       <div class="card" style="margin-bottom:16px">
-        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">Channel Analysis</div>
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:16px">Channel Analysis</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px">${channelsHtml}</div>
       </div>
 
       <!-- VENDOR ACCOUNTABILITY -->
       ${vendorHtml ? `<div class="card" style="margin-bottom:16px">
-        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--warning);margin-bottom:14px">Vendor Accountability</div>
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--warning);margin-bottom:16px">Vendor Accountability</div>
         ${vendorHtml}
       </div>` : ''}
 
       <!-- SALES ROI -->
       ${r.salesROI?.hasData ? `<div class="card" style="margin-bottom:16px">
-        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:6px">Sales ROI — Connecting Investments to Cars Sold</div>
-        <div style="font-size:14px;color:var(--white2);line-height:1.75;margin-bottom:16px">${r.salesROI.summary}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px">
-          ${r.salesROI.totalVehiclesSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Cars Sold</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.totalVehiclesSold}</div></div>` : ''}
-          ${r.salesROI.totalLeads ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Leads</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.totalLeads}</div></div>` : ''}
-          ${r.salesROI.leadToSaleRate ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Lead→Sale Rate</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.leadToSaleRate}%</div></div>` : ''}
-          ${r.salesROI.totalVendorSpend ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Vendor Spend</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">$${r.salesROI.totalVendorSpend.toLocaleString()}</div></div>` : ''}
-          ${r.salesROI.blendedCostPerCarSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;border:1px solid rgba(254,0,0,0.3)"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Blended Cost/Car Sold</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--red)">$${r.salesROI.blendedCostPerCarSold.toLocaleString()}</div></div>` : ''}
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:8px">Sales ROI — Connecting Investments to Cars Sold</div>
+        <div style="font-size:15px;color:var(--white2);line-height:1.8;margin-bottom:18px">${r.salesROI.summary}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+          ${r.salesROI.totalVehiclesSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px"><div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Cars Sold</div><div style="font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--white)">${r.salesROI.totalVehiclesSold}</div></div>` : ''}
+          ${r.salesROI.totalLeads ? `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px"><div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Total Leads</div><div style="font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--white)">${r.salesROI.totalLeads}</div></div>` : ''}
+          ${r.salesROI.leadToSaleRate ? `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px"><div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Lead to Sale Rate</div><div style="font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--white)">${r.salesROI.leadToSaleRate}%</div></div>` : ''}
+          ${r.salesROI.totalVendorSpend ? `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px"><div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Total Vendor Spend</div><div style="font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--white)">$${r.salesROI.totalVendorSpend.toLocaleString()}</div></div>` : ''}
+          ${r.salesROI.blendedCostPerCarSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px;border:1px solid rgba(254,0,0,0.3)"><div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Blended Cost Per Car Sold</div><div style="font-family:var(--font-h);font-size:28px;font-weight:800;color:var(--red)">$${r.salesROI.blendedCostPerCarSold.toLocaleString()}</div></div>` : ''}
         </div>
         ${r.salesROI.vendorROI?.length > 0 ? `
-          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Vendor by Vendor</div>
+          <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Vendor by Vendor</div>
           <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
             <tr>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Vendor</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Monthly Fee</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Leads</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cars Sold</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Lead</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Car Sold</th>
-              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Verdict</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Vendor</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Monthly Fee</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Leads</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Cars Sold</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Lead</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Car Sold</th>
+              <th style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)">Verdict</th>
             </tr>
             ${r.salesROI.vendorROI.map(v => {
-              const verdictColors = {'strong-roi':'#22C55E','acceptable':'#01B0F1','weak-roi':'#F59E0B','not-justified':'#EF4444','unknown':'#6868A0'};
+              const verdictColors = {'strong-roi':'#22C55E','acceptable':'#7BC67E','weak-roi':'#F59E0B','not-justified':'#EF4444','unknown':'#6868A0'};
               const verdictLabels = {'strong-roi':'Strong ROI','acceptable':'Acceptable','weak-roi':'Weak ROI','not-justified':'Not Justified','unknown':'Unknown'};
               const vc = verdictColors[v.verdict] || '#6868A0';
               return `<tr>
@@ -1389,11 +1411,11 @@
                 <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">$${(v.monthlyFee||0).toLocaleString()}</td>
                 <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.leadsGenerated ?? '—'}</td>
                 <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.carsSold ?? '—'}</td>
-                <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.costPerLead ? '$'+Math.round(v.costPerLead) : '—'}</td>
-                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:${vc};border-bottom:1px solid var(--border)">${v.costPerCarSold ? '$'+Math.round(v.costPerCarSold).toLocaleString() : '—'}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid var(--border)">
-                  <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:2px 8px;border-radius:100px">${verdictLabels[v.verdict]||'Unknown'}</span>
-                  ${v.verdictReason ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${v.verdictReason}</div>` : ''}
+                <td style="padding:12px 14px;font-size:14px;color:var(--white2);border-bottom:1px solid var(--border)">${v.costPerLead ? '$'+Math.round(v.costPerLead) : '—'}</td>
+                <td style="padding:12px 14px;font-size:15px;font-weight:700;color:${vc};border-bottom:1px solid var(--border)">${v.costPerCarSold ? '$'+Math.round(v.costPerCarSold).toLocaleString() : '—'}</td>
+                <td style="padding:12px 14px;border-bottom:1px solid var(--border)">
+                  <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:${vc};border:1px solid ${vc};padding:3px 10px;border-radius:100px">${verdictLabels[v.verdict]||'Unknown'}</span>
+                  ${v.verdictReason ? `<div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">${v.verdictReason}</div>` : ''}
                 </td>
               </tr>`;
             }).join('')}
@@ -1402,12 +1424,12 @@
 
       <!-- ACTION PLAN -->
       <div class="card" style="margin-bottom:16px">
-        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:6px">Action Plan</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Ordered by priority. Each item shows effort level, investment type, and owner.</div>
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:8px">Action Plan</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:18px">Ordered by priority. Each item shows effort level, investment type, and owner.</div>
         ${actionHtml}
       </div>
 
-      <div style="text-align:center;font-size:11px;color:var(--muted);padding:8px 0 20px;line-height:1.7">
+      <div style="text-align:center;font-size:13px;color:var(--muted);padding:8px 0 20px;line-height:1.8">
         Dealer Superhero Intelligence Report &nbsp;·&nbsp; ${monthName} ${r.year}<br>
         Prepared by Shaun Raines &nbsp;·&nbsp; dealer-superhero.com<br>
         This report is confidential and prepared exclusively for ${r.dealer?.name}.
@@ -1418,7 +1440,7 @@
 
   function scoreColor(s) {
     if (s >= 85) return '#22C55E';
-    if (s >= 70) return '#01B0F1';
+    if (s >= 70) return '#7BC67E';
     if (s >= 55) return '#F59E0B';
     if (s >= 40) return '#F97316';
     return '#EF4444';
