@@ -1085,60 +1085,116 @@
 
     const btn = document.getElementById('rptBtn');
     btn.disabled = true;
-    btn.textContent = 'Generating... this takes 30-50 seconds';
+    btn.textContent = 'Starting report...';
 
     const output = document.getElementById('reportOutput');
-    output.innerHTML = `
-      <div class="card" style="text-align:center;padding:48px">
-        <div style="width:52px;height:52px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:0 auto 20px"></div>
-        <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px">Generating Intelligence Report</div>
-        <div style="font-size:13px;color:var(--white2);margin-bottom:24px">Researching dealer, competitors, and vendors live...</div>
-        <div id="genSteps" style="text-align:left;display:inline-block">
-          <div class="step active" id="gs1"><div class="step-dot">1</div><span>Pulling dealer and vendor data</span></div>
-          <div class="step" id="gs2"><div class="step-dot">2</div><span>Researching dealer online presence</span></div>
-          <div class="step" id="gs3"><div class="step-dot">3</div><span>Analyzing competitors</span></div>
-          <div class="step" id="gs4"><div class="step-dot">4</div><span>Scoring vendor accountability</span></div>
-          <div class="step" id="gs5"><div class="step-dot">5</div><span>Building action plan</span></div>
-          <div class="step" id="gs6"><div class="step-dot">6</div><span>Finalizing report</span></div>
-        </div>
-      </div>`;
-
-    // Animate steps
-    const stepSeq = [['gs1',0],['gs2',5000],['gs3',12000],['gs4',22000],['gs5',32000],['gs6',42000]];
-    const stepTimers = [];
-    stepSeq.forEach(([id,delay],i,arr) => {
-      stepTimers.push(setTimeout(() => {
-        document.getElementById(id).className = 'step active';
-        if (i > 0) document.getElementById(arr[i-1][0]).className = 'step done';
-      }, delay));
-    });
 
     try {
-      const res = await fetch('/.netlify/functions/generate-report', {
+      // Step 1 — Create a pending report record and get a job_id
+      const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+
+      const jobRecord = await sbPost('monthly_reports', {
+        dealer_id: dealerId,
+        report_month: parseInt(month),
+        report_year: parseInt(year),
+        job_id: jobId,
+        job_status: 'pending',
+        status: 'draft',
+      });
+
+      // Step 2 — Fire off the background function
+      fetch('/.netlify/functions/generate-report-background', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dealer_id: dealerId, report_month: parseInt(month), report_year: parseInt(year) }),
+        body: JSON.stringify({
+          dealer_id: dealerId,
+          report_month: parseInt(month),
+          report_year: parseInt(year),
+          job_id: jobId,
+        }),
+      }).catch(() => {}); // background — don't await
+
+      // Step 3 — Show loading UI and start polling
+      btn.textContent = 'Generating...';
+      output.innerHTML = `
+        <div class="card" style="text-align:center;padding:48px">
+          <div style="width:52px;height:52px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:0 auto 20px"></div>
+          <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px">Generating Intelligence Report</div>
+          <div style="font-size:13px;color:var(--white2);margin-bottom:24px">Researching dealer, competitors, and vendors live...<br>This takes 1-2 minutes. You can navigate away and come back.</div>
+          <div id="genSteps" style="text-align:left;display:inline-block">
+            <div class="step active" id="gs1"><div class="step-dot">1</div><span>Pulling dealer and vendor data</span></div>
+            <div class="step" id="gs2"><div class="step-dot">2</div><span>Researching dealer online presence</span></div>
+            <div class="step" id="gs3"><div class="step-dot">3</div><span>Analyzing competitors</span></div>
+            <div class="step" id="gs4"><div class="step-dot">4</div><span>Scoring vendor accountability</span></div>
+            <div class="step" id="gs5"><div class="step-dot">5</div><span>Calculating sales ROI</span></div>
+            <div class="step" id="gs6"><div class="step-dot">6</div><span>Building action plan</span></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:20px" id="pollStatus">Starting analysis...</div>
+        </div>`;
+
+      // Animate steps while waiting
+      const stepSeq = [['gs1',0],['gs2',8000],['gs3',18000],['gs4',30000],['gs5',42000],['gs6',55000]];
+      const stepTimers = [];
+      stepSeq.forEach(([id,delay],i,arr) => {
+        stepTimers.push(setTimeout(() => {
+          const el = document.getElementById(id);
+          if (el) el.className = 'step active';
+          if (i > 0) {
+            const prev = document.getElementById(arr[i-1][0]);
+            if (prev) prev.className = 'step done';
+          }
+        }, delay));
       });
 
-      stepTimers.forEach(clearTimeout);
-      ['gs1','gs2','gs3','gs4','gs5','gs6'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.className = 'step done';
-      });
+      // Step 4 — Poll for completion
+      let attempts = 0;
+      const maxAttempts = 60; // 5 minutes max
+      const poll = setInterval(async () => {
+        attempts++;
+        const pollEl = document.getElementById('pollStatus');
+        if (pollEl) pollEl.textContent = `Checking status... (${attempts * 5}s elapsed)`;
 
-      if (!res.ok) { const t = await res.text(); throw new Error(`Server error ${res.status}: ${t.slice(0,200)}`); }
-      const report = await res.json();
-      if (report.error) throw new Error(report.error);
+        try {
+          const res = await fetch(`/.netlify/functions/report-status?job_id=${jobId}`);
+          const data = await res.json();
 
-      renderReportOutput(report);
+          if (data.status === 'complete' && data.report) {
+            clearInterval(poll);
+            stepTimers.forEach(clearTimeout);
+            ['gs1','gs2','gs3','gs4','gs5','gs6'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.className = 'step done';
+            });
+            setTimeout(() => {
+              renderReportOutput(data.report);
+              btn.disabled = false;
+              btn.textContent = 'Generate Intelligence Report';
+            }, 500);
+
+          } else if (data.status === 'failed') {
+            clearInterval(poll);
+            stepTimers.forEach(clearTimeout);
+            output.innerHTML = `<div class="alert alert-error" style="display:block">Report generation failed: ${data.error || 'Unknown error'}. Please try again.</div>`;
+            btn.disabled = false;
+            btn.textContent = 'Generate Intelligence Report';
+
+          } else if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            stepTimers.forEach(clearTimeout);
+            output.innerHTML = `<div class="alert alert-error" style="display:block">Report is taking longer than expected. Please check back in a few minutes or try regenerating.</div>`;
+            btn.disabled = false;
+            btn.textContent = 'Generate Intelligence Report';
+          }
+        } catch(e) {
+          console.warn('Poll error:', e.message);
+        }
+      }, 5000);
 
     } catch(e) {
-      stepTimers.forEach(clearTimeout);
-      output.innerHTML = `<div class="alert alert-error" style="display:block">Report generation failed: ${e.message}</div>`;
+      output.innerHTML = `<div class="alert alert-error" style="display:block">Failed to start report: ${e.message}</div>`;
+      btn.disabled = false;
+      btn.textContent = 'Generate Intelligence Report';
     }
-
-    btn.disabled = false;
-    btn.textContent = 'Generate Intelligence Report';
   }
 
   function renderReportOutput(r) {
