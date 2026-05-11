@@ -615,8 +615,8 @@
           <div class="tab active" onclick="switchTab('overview','${id}')">Overview</div>
           <div class="tab" onclick="switchTab('vendors-tab','${id}')">Vendors (${vendors.length})</div>
           <div class="tab" onclick="switchTab('competitors-tab','${id}')">Competitors (${competitors.length})</div>
+          <div class="tab" onclick="switchTab('sales-tab','${id}')">Sales Data</div>
           <div class="tab" onclick="switchTab('reports-tab','${id}')">Reports</div>
-          <div class="tab" onclick="switchTab('benchmarks-tab','${id}')">Benchmarks</div>
         </div>
 
         <div id="tab-overview">
@@ -662,12 +662,105 @@
             : competitors.map(c => renderCompetitorCard(c)).join('')}
         </div>
 
-        <div id="tab-reports-tab" style="display:none">
-          <div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">Reports coming soon</div><div class="empty-sub">Monthly report generation will be available in the next build.</div></div>
+        <div id="tab-sales-tab" style="display:none">
+          <div class="card" style="margin-bottom:16px">
+            <div class="section-header" style="margin-bottom:20px">
+              <div><div class="section-title">Monthly Sales Data</div><div class="section-sub">Enter actuals each month before generating the report</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
+              <div class="field">
+                <label>Month</label>
+                <select id="sd_month">
+                  ${['January','February','March','April','May','June','July','August','September','October','November','December'].map((m,i) => `<option value="${i+1}" ${i+1===new Date().getMonth()+1?'selected':''}>${m}</option>`).join('')}
+                </select>
+              </div>
+              <div class="field">
+                <label>Year</label>
+                <select id="sd_year">
+                  <option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>
+                  <option value="${new Date().getFullYear()-1}">${new Date().getFullYear()-1}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Total Vehicles Sold</label>
+                <input type="number" id="sd_sold" placeholder="e.g. 87"/>
+              </div>
+              <div class="field">
+                <label>Total Leads Received</label>
+                <input type="number" id="sd_leads" placeholder="e.g. 340"/>
+              </div>
+              <div class="field">
+                <label>Total Appointments Set</label>
+                <input type="number" id="sd_appts" placeholder="e.g. 120"/>
+              </div>
+            </div>
+            <hr class="divider">
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">Leads by Source (optional)</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px">
+              <div class="field">
+                <label>Paid Search</label>
+                <input type="number" id="sd_paid" placeholder="0"/>
+              </div>
+              <div class="field">
+                <label>Organic / SEO</label>
+                <input type="number" id="sd_organic" placeholder="0"/>
+              </div>
+              <div class="field">
+                <label>Third-Party (Cars.com etc)</label>
+                <input type="number" id="sd_third" placeholder="0"/>
+              </div>
+              <div class="field">
+                <label>Phone</label>
+                <input type="number" id="sd_phone" placeholder="0"/>
+              </div>
+              <div class="field">
+                <label>Walk-In</label>
+                <input type="number" id="sd_walkin" placeholder="0"/>
+              </div>
+              <div class="field">
+                <label>Other</label>
+                <input type="number" id="sd_other" placeholder="0"/>
+              </div>
+            </div>
+            <hr class="divider">
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">Vendor Lead Attribution (optional)</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:14px">For each vendor, enter how many leads they generated and how many of those led to a sold car this month.</div>
+            <div id="vendorAttributionFields">
+              ${vendors.length === 0
+                ? `<div style="font-size:13px;color:var(--muted)">No vendors added yet. Add vendors first to track their attribution.</div>`
+                : vendors.map(v => `
+                  <div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:10px">
+                    <div style="font-family:var(--font-h);font-size:11px;font-weight:700;margin-bottom:10px">${v.vendor_name} <span style="color:var(--muted);font-weight:400">· ${v.category || ''} · $${parseFloat(v.monthly_fee||0).toLocaleString()}/mo</span></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                      <div class="field">
+                        <label>Leads Generated</label>
+                        <input type="number" id="vl_leads_${v.id}" placeholder="0"/>
+                      </div>
+                      <div class="field">
+                        <label>Appointments Set</label>
+                        <input type="number" id="vl_appts_${v.id}" placeholder="0"/>
+                      </div>
+                      <div class="field">
+                        <label>Cars Sold</label>
+                        <input type="number" id="vl_sold_${v.id}" placeholder="0"/>
+                      </div>
+                    </div>
+                  </div>`).join('')}
+            </div>
+            <div class="alert alert-success" id="sdAlert" style="margin-top:14px"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+              <button class="btn btn-primary" onclick="saveSalesData('${id}', ${JSON.stringify(vendors.map(v=>({id:v.id,name:v.vendor_name,fee:v.monthly_fee||0}))).replace(/"/g,'&quot;')})">Save Sales Data</button>
+            </div>
+          </div>
+
+          <div class="card" id="salesHistoryCard">
+            <div class="section-title" style="margin-bottom:16px">Sales History</div>
+            <div id="salesHistory"><div style="font-size:13px;color:var(--muted)">Loading...</div></div>
+          </div>
         </div>
 
-        <div id="tab-benchmarks-tab" style="display:none">
-          <div class="empty"><div class="empty-icon">&#128200;</div><div class="empty-title">Benchmarks coming soon</div><div class="empty-sub">Month-over-month metric tracking will be available in the next build.</div></div>
+        <div id="tab-reports-tab" style="display:none">
+          <div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">Go to Monthly Reports</div><div class="empty-sub">Use the Monthly Reports page in the left nav to generate and view reports for this dealer.</div><button class="btn btn-primary" onclick="showPage('reports')">Go to Reports</button></div>
         </div>`;
     } catch(e) {
       document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
@@ -747,6 +840,141 @@
     }
   }
 
+  async function saveSalesData(dealerId, vendors) {
+    const month = parseInt(document.getElementById('sd_month').value);
+    const year = parseInt(document.getElementById('sd_year').value);
+    const sold = parseInt(document.getElementById('sd_sold').value) || 0;
+    const leads = parseInt(document.getElementById('sd_leads').value) || 0;
+    const appts = parseInt(document.getElementById('sd_appts').value) || 0;
+    const alert = document.getElementById('sdAlert');
+    alert.style.display = 'none';
+
+    if (!sold && !leads) {
+      alert.textContent = 'Please enter at least total vehicles sold or total leads.';
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+      return;
+    }
+
+    try {
+      // Save main sales data
+      await sbPost('sales_data', {
+        dealer_id: dealerId,
+        sale_month: month,
+        sale_year: year,
+        total_vehicles_sold: sold,
+        total_leads: leads,
+        total_appointments: appts,
+        closing_rate: leads > 0 ? Math.round((sold/leads)*100*10)/10 : null,
+        leads_from_paid_search: parseInt(document.getElementById('sd_paid').value) || 0,
+        leads_from_organic: parseInt(document.getElementById('sd_organic').value) || 0,
+        leads_from_third_party: parseInt(document.getElementById('sd_third').value) || 0,
+        leads_from_phone: parseInt(document.getElementById('sd_phone').value) || 0,
+        leads_from_walkin: parseInt(document.getElementById('sd_walkin').value) || 0,
+        leads_from_other: parseInt(document.getElementById('sd_other').value) || 0,
+      });
+
+      // Save vendor attribution for each vendor
+      for (const v of vendors) {
+        const vLeads = parseInt(document.getElementById('vl_leads_'+v.id)?.value) || 0;
+        const vAppts = parseInt(document.getElementById('vl_appts_'+v.id)?.value) || 0;
+        const vSold = parseInt(document.getElementById('vl_sold_'+v.id)?.value) || 0;
+        if (vLeads > 0 || vSold > 0) {
+          const fee = parseFloat(v.fee) || 0;
+          await sbPost('vendor_leads', {
+            dealer_id: dealerId,
+            vendor_id: v.id,
+            attribution_month: month,
+            attribution_year: year,
+            leads_generated: vLeads,
+            appointments_set: vAppts,
+            vehicles_sold: vSold,
+            cost_per_lead: vLeads > 0 ? Math.round((fee/vLeads)*100)/100 : null,
+            cost_per_car_sold: vSold > 0 ? Math.round((fee/vSold)*100)/100 : null,
+          });
+        }
+      }
+
+      alert.textContent = 'Sales data saved successfully!';
+      alert.className = 'alert alert-success';
+      alert.style.display = 'block';
+      loadSalesHistory(dealerId);
+
+    } catch(e) {
+      alert.textContent = 'Error saving: ' + e.message;
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+    }
+  }
+
+  async function loadSalesHistory(dealerId) {
+    const el = document.getElementById('salesHistory');
+    if (!el) return;
+    try {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const [sales, vendorLeads] = await Promise.all([
+        sbGet('sales_data', `?dealer_id=eq.${dealerId}&order=sale_year.desc,sale_month.desc&limit=12`),
+        sbGet('vendor_leads', `?dealer_id=eq.${dealerId}&select=*,vendors(vendor_name,monthly_fee)&order=attribution_year.desc,attribution_month.desc&limit=24`),
+      ]);
+
+      if (sales.length === 0) {
+        el.innerHTML = '<div style="font-size:13px;color:var(--muted)">No sales data entered yet.</div>';
+        return;
+      }
+
+      el.innerHTML = `
+        <div class="table-wrap" style="margin-bottom:20px">
+          <table>
+            <tr><th>Period</th><th>Sold</th><th>Leads</th><th>Appts</th><th>Close Rate</th><th>Lead→Sale Rate</th></tr>
+            ${sales.map(s => {
+              const closeRate = s.total_appointments && s.total_leads ? Math.round((s.total_appointments/s.total_leads)*100) : null;
+              const saleRate = s.total_vehicles_sold && s.total_leads ? Math.round((s.total_vehicles_sold/s.total_leads)*100) : null;
+              return `<tr>
+                <td class="td-main">${months[s.sale_month-1]} ${s.sale_year}</td>
+                <td>${s.total_vehicles_sold || '-'}</td>
+                <td>${s.total_leads || '-'}</td>
+                <td>${s.total_appointments || '-'}</td>
+                <td>${closeRate ? closeRate+'%' : '-'}</td>
+                <td>${saleRate ? saleRate+'%' : '-'}</td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>
+
+        ${vendorLeads.length > 0 ? `
+          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:12px">Vendor ROI History</div>
+          <div class="table-wrap">
+            <table>
+              <tr><th>Vendor</th><th>Period</th><th>Fee</th><th>Leads</th><th>Cars Sold</th><th>Cost/Lead</th><th>Cost/Car Sold</th><th>Verdict</th></tr>
+              ${vendorLeads.map(vl => {
+                const fee = parseFloat(vl.vendors?.monthly_fee || 0);
+                const cpcs = vl.cost_per_car_sold;
+                let verdict = '—';
+                let verdictColor = 'var(--muted)';
+                if (cpcs) {
+                  if (cpcs < 300) { verdict = 'Strong ROI'; verdictColor = 'var(--success)'; }
+                  else if (cpcs < 600) { verdict = 'Acceptable'; verdictColor = 'var(--blue-light)'; }
+                  else if (cpcs < 1000) { verdict = 'Weak ROI'; verdictColor = 'var(--warning)'; }
+                  else { verdict = 'Not Justified'; verdictColor = 'var(--danger)'; }
+                }
+                return `<tr>
+                  <td class="td-main">${vl.vendors?.vendor_name || '-'}</td>
+                  <td>${months[vl.attribution_month-1]} ${vl.attribution_year}</td>
+                  <td>$${fee.toLocaleString()}</td>
+                  <td>${vl.leads_generated || 0}</td>
+                  <td>${vl.vehicles_sold || 0}</td>
+                  <td>${vl.cost_per_lead ? '$'+Math.round(vl.cost_per_lead) : '—'}</td>
+                  <td style="font-weight:600">${cpcs ? '$'+Math.round(cpcs).toLocaleString() : '—'}</td>
+                  <td style="color:${verdictColor};font-family:var(--font-h);font-size:10px;font-weight:700">${verdict}</td>
+                </tr>`;
+              }).join('')}
+            </table>
+          </div>` : ''}`;
+    } catch(e) {
+      el.innerHTML = `<div style="font-size:13px;color:var(--danger)">${e.message}</div>`;
+    }
+  }
+
   function renderVendorCard(v) {
     const promises = [
       v.promised_traffic_increase ? `Organic traffic increase: ${v.promised_traffic_increase}%` : null,
@@ -776,25 +1004,384 @@
   function switchTab(tabId, dealerId) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     event.target.classList.add('active');
-    ['overview','vendors-tab','competitors-tab','reports-tab','benchmarks-tab'].forEach(t => {
+    ['overview','vendors-tab','competitors-tab','sales-tab','reports-tab'].forEach(t => {
       const el = document.getElementById('tab-'+t);
       if (el) el.style.display = t === tabId ? 'block' : 'none';
     });
+    if (tabId === 'sales-tab' && dealerId) loadSalesHistory(dealerId);
   }
 
   // ── REPORTS PAGE ──
   async function renderReports() {
+    document.getElementById('topbarActions').innerHTML = '';
     try {
-      const dealers = await sbGet('dealers', '?select=*&status=eq.active&order=name.asc');
+      const [dealers, reports] = await Promise.all([
+        sbGet('dealers', '?select=*&order=name.asc'),
+        sbGet('monthly_reports', '?select=*,dealers(name)&order=created_at.desc&limit=20'),
+      ]);
+
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const now = new Date();
+
       document.getElementById('pageContent').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">&#128202;</div>
-          <div class="empty-title">Monthly Report Generator</div>
-          <div class="empty-sub">Select a dealer and generate their monthly intelligence report. This feature is coming in the next build session.</div>
-        </div>`;
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start">
+          <div class="card">
+            <div class="section-header" style="margin-bottom:20px">
+              <div><div class="section-title">Generate Report</div><div class="section-sub">Select a dealer and month</div></div>
+            </div>
+            <div class="field" style="margin-bottom:16px">
+              <label>Dealer</label>
+              <select id="rpt_dealer">
+                <option value="">Select dealer...</option>
+                ${dealers.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+              <div class="field">
+                <label>Month</label>
+                <select id="rpt_month">
+                  ${months.map((m,i) => `<option value="${i+1}" ${i+1===now.getMonth()+1?'selected':''}>${m}</option>`).join('')}
+                </select>
+              </div>
+              <div class="field">
+                <label>Year</label>
+                <select id="rpt_year">
+                  <option value="${now.getFullYear()}">${now.getFullYear()}</option>
+                  <option value="${now.getFullYear()-1}">${now.getFullYear()-1}</option>
+                </select>
+              </div>
+            </div>
+            <div class="alert alert-error" id="rptError" style="margin-bottom:12px"></div>
+            <button class="btn btn-primary" style="width:100%" onclick="generateReport()" id="rptBtn">
+              Generate Intelligence Report
+            </button>
+            <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;line-height:1.6">
+              Uses live web research. Takes 30-50 seconds.<br>Report saves automatically when complete.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-header" style="margin-bottom:20px">
+              <div><div class="section-title">Report History</div><div class="section-sub">All generated reports</div></div>
+            </div>
+            ${reports.length === 0
+              ? `<div class="empty" style="padding:30px 0"><div class="empty-icon" style="font-size:32px">&#128202;</div><div class="empty-title">No reports yet</div><div class="empty-sub">Generate your first report to get started.</div></div>`
+              : `<div class="table-wrap"><table>
+                  <tr><th>Dealer</th><th>Period</th><th>Score</th><th>Status</th><th></th></tr>
+                  ${reports.map(r => `<tr>
+                    <td class="td-main">${r.dealers?.name || '-'}</td>
+                    <td>${months[r.report_month-1]} ${r.report_year}</td>
+                    <td>${r.overall_score ? Math.round(r.overall_score)+'/100' : '-'}</td>
+                    <td><span class="badge badge-${r.status}">${r.status}</span></td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="loadSavedReport('${r.id}')">View</button></td>
+                  </tr>`).join('')}
+                </table></div>`}
+          </div>
+        </div>
+
+        <div id="reportOutput" style="margin-top:20px"></div>`;
     } catch(e) {
       document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
     }
+  }
+
+  async function generateReport() {
+    const dealerId = document.getElementById('rpt_dealer').value;
+    const month = document.getElementById('rpt_month').value;
+    const year = document.getElementById('rpt_year').value;
+    const errEl = document.getElementById('rptError');
+    errEl.style.display = 'none';
+
+    if (!dealerId) { errEl.textContent = 'Please select a dealer.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('rptBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generating... this takes 30-50 seconds';
+
+    const output = document.getElementById('reportOutput');
+    output.innerHTML = `
+      <div class="card" style="text-align:center;padding:48px">
+        <div style="width:52px;height:52px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:0 auto 20px"></div>
+        <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px">Generating Intelligence Report</div>
+        <div style="font-size:13px;color:var(--white2);margin-bottom:24px">Researching dealer, competitors, and vendors live...</div>
+        <div id="genSteps" style="text-align:left;display:inline-block">
+          <div class="step active" id="gs1"><div class="step-dot">1</div><span>Pulling dealer and vendor data</span></div>
+          <div class="step" id="gs2"><div class="step-dot">2</div><span>Researching dealer online presence</span></div>
+          <div class="step" id="gs3"><div class="step-dot">3</div><span>Analyzing competitors</span></div>
+          <div class="step" id="gs4"><div class="step-dot">4</div><span>Scoring vendor accountability</span></div>
+          <div class="step" id="gs5"><div class="step-dot">5</div><span>Building action plan</span></div>
+          <div class="step" id="gs6"><div class="step-dot">6</div><span>Finalizing report</span></div>
+        </div>
+      </div>`;
+
+    // Animate steps
+    const stepSeq = [['gs1',0],['gs2',5000],['gs3',12000],['gs4',22000],['gs5',32000],['gs6',42000]];
+    const stepTimers = [];
+    stepSeq.forEach(([id,delay],i,arr) => {
+      stepTimers.push(setTimeout(() => {
+        document.getElementById(id).className = 'step active';
+        if (i > 0) document.getElementById(arr[i-1][0]).className = 'step done';
+      }, delay));
+    });
+
+    try {
+      const res = await fetch('/.netlify/functions/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealer_id: dealerId, report_month: parseInt(month), report_year: parseInt(year) }),
+      });
+
+      stepTimers.forEach(clearTimeout);
+      ['gs1','gs2','gs3','gs4','gs5','gs6'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'step done';
+      });
+
+      if (!res.ok) { const t = await res.text(); throw new Error(`Server error ${res.status}: ${t.slice(0,200)}`); }
+      const report = await res.json();
+      if (report.error) throw new Error(report.error);
+
+      renderReportOutput(report);
+
+    } catch(e) {
+      stepTimers.forEach(clearTimeout);
+      output.innerHTML = `<div class="alert alert-error" style="display:block">Report generation failed: ${e.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Generate Intelligence Report';
+  }
+
+  function renderReportOutput(r) {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthName = r.monthName || months[(r.month||1)-1];
+    const sc = scoreColor(r.overallScore);
+
+    const gradeColors = {'A':'#22C55E','B':'#01B0F1','C':'#F59E0B','D':'#F97316','F':'#EF4444'};
+    const gc = gradeColors[r.grade] || '#6868A0';
+
+    // Channel scores bar
+    const channelScores = r.channelScores || {};
+    const channelNames = {seo:'SEO',paidSearch:'Paid Search',website:'Website',reputation:'Reputation',social:'Social',emailCrm:'Email/CRM',aiVisibility:'AI Visibility',vendorAccountability:'Vendor Accountability'};
+
+    const channelBars = Object.entries(channelNames).map(([key,name]) => {
+      const score = channelScores[key] || 0;
+      const c = scoreColor(score);
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;color:var(--white2)">${name}</span>
+          <span style="font-family:var(--font-h);font-size:11px;font-weight:700;color:${c}">${score}</span>
+        </div>
+        <div style="height:5px;background:var(--border);border-radius:3px">
+          <div style="height:5px;border-radius:3px;width:${score}%;background:${c}"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Competitive position
+    const compHtml = (r.competitivePosition?.competitors || []).map(c => {
+      const urgencyColor = c.urgency === 'high' ? 'var(--danger)' : c.urgency === 'medium' ? 'var(--warning)' : 'var(--success)';
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-family:var(--font-h);font-size:12px;font-weight:700">${c.name}</div>
+          <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${urgencyColor};border:1px solid ${urgencyColor};padding:2px 8px;border-radius:100px">${c.urgency} urgency</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--danger);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">They're winning</div>
+            ${(c.whereTheyAreWinning||[]).map(w => `<div style="font-size:12px;color:var(--white2);padding:3px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--success);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">You're winning</div>
+            ${(c.whereYouAreWinning||[]).map(w => `<div style="font-size:12px;color:var(--white2);padding:3px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Channels
+    const channelsHtml = (r.channels || []).map(ch => {
+      const cc = scoreColor(ch.score);
+      const fh = (ch.findings||[]).map(f => {
+        const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
+        const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
+        return `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px;color:var(--white2);align-items:flex-start"><span class="badge ${bc}" style="margin-top:1px">${lb}</span><span>${f.text}</span></div>`;
+      }).join('');
+      return `<div class="card card-sm" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-family:var(--font-h);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;flex:1">${ch.name}</span>
+          <span style="font-family:var(--font-h);font-size:13px;font-weight:800;color:${cc}">${ch.score}/100</span>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px">
+          <div style="height:4px;border-radius:2px;width:${ch.score}%;background:${cc}"></div>
+        </div>
+        ${ch.summary ? `<div style="font-size:13px;color:var(--white2);margin-bottom:10px;line-height:1.6">${ch.summary}</div>` : ''}
+        ${fh}
+      </div>`;
+    }).join('');
+
+    // Vendor accountability
+    const vendorHtml = (r.vendorAccountability || []).map(v => {
+      const verdictColors = {'delivering':'var(--success)','mixed':'var(--warning)','underdelivering':'var(--danger)','unknown':'var(--muted)'};
+      const vc = verdictColors[v.verdict] || 'var(--muted)';
+      const fh = (v.findings||[]).map(f => {
+        const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
+        const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
+        return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:12px;color:var(--white2);align-items:flex-start"><span class="badge ${bc}" style="margin-top:1px">${lb}</span><span>${f.text}</span></div>`;
+      }).join('');
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-family:var(--font-h);font-size:12px;font-weight:700">${v.vendorName}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${v.category} · $${(v.monthlyFee||0).toLocaleString()}/mo</div>
+          </div>
+          <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:2px 10px;border-radius:100px;text-transform:uppercase">${v.verdict}</span>
+        </div>
+        ${v.summary ? `<div style="font-size:12px;color:var(--white2);margin-bottom:10px;line-height:1.6">${v.summary}</div>` : ''}
+        ${fh}
+      </div>`;
+    }).join('');
+
+    // Action plan
+    const effortIcons = {'quick-win':'⚡','medium-lift':'🔧','heavy-lift':'🏗️'};
+    const investIcons = {'time':'⏱️','money':'💰','both':'⏱️💰'};
+    const actionHtml = (r.actionPlan || []).map((a, i) => {
+      const pc = a.priority==='high'?'pri-high':a.priority==='medium'?'pri-medium':'pri-low';
+      const ownerColor = a.owner==='dealer'?'var(--blue-light)':a.owner==='vendor'?'var(--warning)':'var(--white2)';
+      return `<div style="background:var(--card2);border-radius:var(--rs);padding:16px 18px;margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
+          <div style="font-family:var(--font-h);font-size:18px;font-weight:900;color:var(--muted);flex-shrink:0;line-height:1;margin-top:2px">${String(i+1).padStart(2,'0')}</div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-h);font-size:13px;font-weight:700;margin-bottom:6px">${a.title}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+              <span class="rec-pri ${pc}">${a.priority}</span>
+              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${effortIcons[a.effort]} ${a.effort?.replace('-',' ')}</span>
+              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${investIcons[a.investment]} ${a.investment}</span>
+              <span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:${ownerColor}">Owner: ${a.owner}</span>
+            </div>
+            <div style="font-size:13px;color:var(--white2);line-height:1.65;margin-bottom:8px">${a.description}</div>
+            ${a.investmentDetail ? `<div style="font-size:12px;color:var(--blue-light);margin-bottom:6px">Investment: ${a.investmentDetail}</div>` : ''}
+            ${a.impact ? `<div style="font-size:12px;color:var(--success)">Expected: ${a.impact}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('reportOutput').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--white2)">
+          ${r.dealer?.name} &nbsp;·&nbsp; ${monthName} ${r.year} Intelligence Report
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save PDF</button>
+        </div>
+      </div>
+
+      <!-- REPORT HEADER -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+          <div style="width:88px;height:88px;border-radius:50%;border:3px solid ${gc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-family:var(--font-h);font-size:36px;font-weight:900;color:${gc};line-height:1">${r.grade}</div>
+            <div style="font-size:9px;color:${gc};opacity:0.7;letter-spacing:0.04em">GRADE</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:4px">${r.dealer?.name}</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${r.dealer?.brand || ''} &nbsp;·&nbsp; ${[r.dealer?.city, r.dealer?.state].filter(Boolean).join(', ')} &nbsp;·&nbsp; Overall Score: ${r.overallScore}/100</div>
+            <div style="font-size:14px;color:var(--white2);line-height:1.75">${r.executiveSummary}</div>
+          </div>
+          <div style="min-width:220px">${channelBars}</div>
+        </div>
+      </div>
+
+      <!-- COMPETITIVE POSITION -->
+      ${r.competitivePosition ? `<div class="card" style="margin-bottom:16px">
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);margin-bottom:10px">Competitive Position</div>
+        <div style="font-size:14px;color:var(--white2);line-height:1.7;margin-bottom:16px">${r.competitivePosition.summary}</div>
+        ${compHtml}
+      </div>` : ''}
+
+      <!-- CHANNEL ANALYSIS -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">Channel Analysis</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px">${channelsHtml}</div>
+      </div>
+
+      <!-- VENDOR ACCOUNTABILITY -->
+      ${vendorHtml ? `<div class="card" style="margin-bottom:16px">
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--warning);margin-bottom:14px">Vendor Accountability</div>
+        ${vendorHtml}
+      </div>` : ''}
+
+      <!-- SALES ROI -->
+      ${r.salesROI?.hasData ? `<div class="card" style="margin-bottom:16px">
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:6px">Sales ROI — Connecting Investments to Cars Sold</div>
+        <div style="font-size:14px;color:var(--white2);line-height:1.75;margin-bottom:16px">${r.salesROI.summary}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px">
+          ${r.salesROI.totalVehiclesSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Cars Sold</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.totalVehiclesSold}</div></div>` : ''}
+          ${r.salesROI.totalLeads ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Leads</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.totalLeads}</div></div>` : ''}
+          ${r.salesROI.leadToSaleRate ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Lead→Sale Rate</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">${r.salesROI.leadToSaleRate}%</div></div>` : ''}
+          ${r.salesROI.totalVendorSpend ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Vendor Spend</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--white)">$${r.salesROI.totalVendorSpend.toLocaleString()}</div></div>` : ''}
+          ${r.salesROI.blendedCostPerCarSold ? `<div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;border:1px solid rgba(254,0,0,0.3)"><div style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Blended Cost/Car Sold</div><div style="font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--red)">$${r.salesROI.blendedCostPerCarSold.toLocaleString()}</div></div>` : ''}
+        </div>
+        ${r.salesROI.vendorROI?.length > 0 ? `
+          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Vendor by Vendor</div>
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+            <tr>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Vendor</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Monthly Fee</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Leads</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cars Sold</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Lead</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cost/Car Sold</th>
+              <th style="font-family:var(--font-h);font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Verdict</th>
+            </tr>
+            ${r.salesROI.vendorROI.map(v => {
+              const verdictColors = {'strong-roi':'#22C55E','acceptable':'#01B0F1','weak-roi':'#F59E0B','not-justified':'#EF4444','unknown':'#6868A0'};
+              const verdictLabels = {'strong-roi':'Strong ROI','acceptable':'Acceptable','weak-roi':'Weak ROI','not-justified':'Not Justified','unknown':'Unknown'};
+              const vc = verdictColors[v.verdict] || '#6868A0';
+              return `<tr>
+                <td style="padding:10px 12px;font-size:13px;color:var(--white);font-weight:600;border-bottom:1px solid var(--border)">${v.vendorName}</td>
+                <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">$${(v.monthlyFee||0).toLocaleString()}</td>
+                <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.leadsGenerated ?? '—'}</td>
+                <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.carsSold ?? '—'}</td>
+                <td style="padding:10px 12px;font-size:13px;color:var(--white2);border-bottom:1px solid var(--border)">${v.costPerLead ? '$'+Math.round(v.costPerLead) : '—'}</td>
+                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:${vc};border-bottom:1px solid var(--border)">${v.costPerCarSold ? '$'+Math.round(v.costPerCarSold).toLocaleString() : '—'}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid var(--border)">
+                  <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:2px 8px;border-radius:100px">${verdictLabels[v.verdict]||'Unknown'}</span>
+                  ${v.verdictReason ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${v.verdictReason}</div>` : ''}
+                </td>
+              </tr>`;
+            }).join('')}
+          </table></div>` : ''}
+      </div>` : ''}
+
+      <!-- ACTION PLAN -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--success);margin-bottom:6px">Action Plan</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Ordered by priority. Each item shows effort level, investment type, and owner.</div>
+        ${actionHtml}
+      </div>
+
+      <div style="text-align:center;font-size:11px;color:var(--muted);padding:8px 0 20px;line-height:1.7">
+        Dealer Superhero Intelligence Report &nbsp;·&nbsp; ${monthName} ${r.year}<br>
+        Prepared by Shaun Raines &nbsp;·&nbsp; dealer-superhero.com<br>
+        This report is confidential and prepared exclusively for ${r.dealer?.name}.
+      </div>`;
+
+    window.scrollTo({ top: document.getElementById('reportOutput').offsetTop - 20, behavior: 'smooth' });
+  }
+
+  function scoreColor(s) {
+    if (s >= 85) return '#22C55E';
+    if (s >= 70) return '#01B0F1';
+    if (s >= 55) return '#F59E0B';
+    if (s >= 40) return '#F97316';
+    return '#EF4444';
+  }
+
+  async function loadSavedReport(reportId) {
+    // For now just show a coming soon message
+    alert('Saved report viewer coming in the next build. For now, regenerate the report to view it.');
   }
 
   // ── VENDORS PAGE ──
