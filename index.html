@@ -587,6 +587,7 @@
   async function renderDealerDetail(id) {
     document.getElementById('topbarActions').innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="showPage('dealers')">&#8592; All Dealers</button>
+      <button class="btn btn-ghost btn-sm" onclick="openDealerModal('${id}', ${JSON.stringify(d).replace(/"/g,'&quot;')})">Edit Dealer</button>
       <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${id}')">+ Competitor</button>
       <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>`;
     try {
@@ -768,7 +769,11 @@
           <div style="font-family:var(--font-h);font-size:13px;font-weight:700">${c.name}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px">${c.brand || ''}</div>
         </div>
-        <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${priorityColor};background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:100px;border:1px solid ${priorityColor}">${priority} Competitor</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${priorityColor};background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:100px;border:1px solid ${priorityColor}">${priority}</span>
+          <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${c.dealer_id}', ${JSON.stringify(c).replace(/"/g,'&quot;')})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCompetitor('${c.id}','${c.dealer_id}')">Delete</button>
+        </div>
       </div>
       ${c.website_url ? `<div style="font-size:12px;margin-bottom:8px"><a href="${c.website_url}" target="_blank" style="color:var(--blue-light)">${c.website_url}</a></div>` : ''}
       ${c.gbp_url ? `<div style="font-size:12px;margin-bottom:8px"><a href="${c.gbp_url}" target="_blank" style="color:var(--blue-light)">Google Business Profile</a></div>` : ''}
@@ -796,10 +801,23 @@
   }
 
   let currentCompetitorDealerId = null;
-  function openCompetitorModal(dealerId) {
+  let editingCompetitorId = null;
+
+  function openCompetitorModal(dealerId, existingComp=null) {
     currentCompetitorDealerId = dealerId;
-    ['c_name','c_brand','c_website','c_gbp','c_notes'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('c_order').value = '1';
+    editingCompetitorId = existingComp?.id || null;
+    document.querySelector('#competitorModal .modal-title').textContent = existingComp ? 'Edit Competitor' : 'Add Competitor';
+    if (existingComp) {
+      document.getElementById('c_name').value = existingComp.name || '';
+      document.getElementById('c_brand').value = existingComp.brand || '';
+      document.getElementById('c_website').value = existingComp.website_url || '';
+      document.getElementById('c_gbp').value = existingComp.gbp_url || '';
+      document.getElementById('c_notes').value = existingComp.notes || '';
+      document.getElementById('c_order').value = existingComp.display_order || '1';
+    } else {
+      ['c_name','c_brand','c_website','c_gbp','c_notes'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('c_order').value = '1';
+    }
     const alert = document.getElementById('competitorAlert');
     alert.style.display = 'none';
     openModal('competitorModal');
@@ -818,9 +836,13 @@
       display_order: parseInt(document.getElementById('c_order').value),
     };
     try {
-      await sbPost('competitors', data);
+      if (editingCompetitorId) {
+        await sbPatch('competitors', editingCompetitorId, data);
+      } else {
+        await sbPost('competitors', data);
+      }
       const alert = document.getElementById('competitorAlert');
-      alert.textContent = 'Competitor saved successfully!';
+      alert.textContent = editingCompetitorId ? 'Competitor updated successfully!' : 'Competitor saved successfully!';
       alert.className = 'alert alert-success';
       alert.style.display = 'block';
       setTimeout(() => { closeModal('competitorModal'); renderDealerDetail(currentCompetitorDealerId); }, 1000);
@@ -977,6 +999,16 @@
     }
   }
 
+  async function deleteCompetitor(competitorId, dealerId) {
+    if (!confirm('Delete this competitor? This cannot be undone.')) return;
+    try {
+      await sbDelete('competitors', competitorId);
+      renderDealerDetail(dealerId);
+    } catch(e) {
+      alert('Error deleting competitor: ' + e.message);
+    }
+  }
+
   function renderVendorCard(v) {
     const promises = [
       v.promised_traffic_increase ? `Organic traffic increase: ${v.promised_traffic_increase}%` : null,
@@ -995,6 +1027,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge badge-${v.status}">${v.status}</span>
+          <button class="btn btn-ghost btn-sm" onclick="openVendorModal('${v.dealer_id}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteVendor('${v.id}','${v.dealer_id}')">Delete</button>
         </div>
       </div>
@@ -1486,25 +1519,58 @@
   function openModal(id) { document.getElementById(id).classList.add('open'); }
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-  function openDealerModal(dealerId=null) {
+  function openDealerModal(dealerId=null, existingData=null) {
     editingDealerId = dealerId;
     document.getElementById('dealerModalTitle').textContent = dealerId ? 'Edit Dealer' : 'Add New Dealer';
-    ['d_name','d_brand','d_city','d_state','d_website','d_gbp','d_notes'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('d_cms').value = '';
-    document.getElementById('d_retainer').value = '';
-    document.getElementById('d_start').value = '';
-    document.getElementById('d_status').value = 'active';
+    if (existingData) {
+      document.getElementById('d_name').value = existingData.name || '';
+      document.getElementById('d_brand').value = existingData.brand || '';
+      document.getElementById('d_city').value = existingData.city || '';
+      document.getElementById('d_state').value = existingData.state || '';
+      document.getElementById('d_website').value = existingData.website_url || '';
+      document.getElementById('d_gbp').value = existingData.gbp_url || '';
+      document.getElementById('d_cms').value = existingData.cms_provider || '';
+      document.getElementById('d_retainer').value = existingData.monthly_retainer || '';
+      document.getElementById('d_start').value = existingData.start_date || '';
+      document.getElementById('d_status').value = existingData.status || 'active';
+      document.getElementById('d_notes').value = existingData.notes || '';
+    } else {
+      ['d_name','d_brand','d_city','d_state','d_website','d_gbp','d_notes'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('d_cms').value = '';
+      document.getElementById('d_retainer').value = '';
+      document.getElementById('d_start').value = '';
+      document.getElementById('d_status').value = 'active';
+    }
     document.getElementById('dealerAlert').style.display = 'none';
     openModal('dealerModal');
   }
 
   let currentVendorDealerId = null;
-  function openVendorModal(dealerId) {
+  let editingVendorId = null;
+
+  function openVendorModal(dealerId, existingVendor=null) {
     currentVendorDealerId = dealerId;
-    ['v_name','v_fee','v_contact_name','v_contact_email','v_deliverables','v_promises'].forEach(id => document.getElementById(id).value = '');
-    ['v_traffic','v_cpl','v_response','v_roas'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('v_category').value = '';
-    document.getElementById('v_start').value = '';
+    editingVendorId = existingVendor?.id || null;
+    document.querySelector('#vendorModal .modal-title').textContent = existingVendor ? 'Edit Vendor' : 'Add Vendor';
+    if (existingVendor) {
+      document.getElementById('v_name').value = existingVendor.vendor_name || '';
+      document.getElementById('v_category').value = existingVendor.category || '';
+      document.getElementById('v_fee').value = existingVendor.monthly_fee || '';
+      document.getElementById('v_start').value = existingVendor.contract_start || '';
+      document.getElementById('v_contact_name').value = existingVendor.contact_name || '';
+      document.getElementById('v_contact_email').value = existingVendor.contact_email || '';
+      document.getElementById('v_traffic').value = existingVendor.promised_traffic_increase || '';
+      document.getElementById('v_cpl').value = existingVendor.promised_cost_per_lead || '';
+      document.getElementById('v_response').value = existingVendor.promised_review_response_hours || '';
+      document.getElementById('v_roas').value = existingVendor.promised_roas || '';
+      document.getElementById('v_deliverables').value = existingVendor.promised_deliverables || '';
+      document.getElementById('v_promises').value = existingVendor.additional_promises || '';
+    } else {
+      ['v_name','v_fee','v_contact_name','v_contact_email','v_deliverables','v_promises'].forEach(id => document.getElementById(id).value = '');
+      ['v_traffic','v_cpl','v_response','v_roas'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('v_category').value = '';
+      document.getElementById('v_start').value = '';
+    }
     document.getElementById('vendorAlert').style.display = 'none';
     openModal('vendorModal');
   }
@@ -1530,12 +1596,20 @@
       notes: document.getElementById('d_notes').value.trim(),
     };
     try {
-      await sbPost('dealers', data);
+      if (editingDealerId) {
+        await sbPatch('dealers', editingDealerId, data);
+      } else {
+        await sbPost('dealers', data);
+      }
       const alert = document.getElementById('dealerAlert');
-      alert.textContent = 'Dealer saved successfully!';
+      alert.textContent = editingDealerId ? 'Dealer updated successfully!' : 'Dealer saved successfully!';
       alert.className = 'alert alert-success';
       alert.style.display = 'block';
-      setTimeout(() => { closeModal('dealerModal'); renderDealers(); }, 1000);
+      setTimeout(() => {
+        closeModal('dealerModal');
+        if (editingDealerId) renderDealerDetail(editingDealerId);
+        else renderDealers();
+      }, 1000);
     } catch(e) {
       const alert = document.getElementById('dealerAlert');
       alert.textContent = 'Error saving dealer: ' + e.message;
@@ -1565,9 +1639,13 @@
       status: 'active',
     };
     try {
-      await sbPost('vendors', data);
+      if (editingVendorId) {
+        await sbPatch('vendors', editingVendorId, data);
+      } else {
+        await sbPost('vendors', data);
+      }
       const alert = document.getElementById('vendorAlert');
-      alert.textContent = 'Vendor saved successfully!';
+      alert.textContent = editingVendorId ? 'Vendor updated successfully!' : 'Vendor saved successfully!';
       alert.className = 'alert alert-success';
       alert.style.display = 'block';
       setTimeout(() => { closeModal('vendorModal'); renderDealerDetail(currentVendorDealerId); }, 1000);
