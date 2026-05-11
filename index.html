@@ -411,53 +411,42 @@
 </div>
 
 <script>
-  // ── CONFIG ──
-  const SUPABASE_URL = 'https://wfywchdnmhjdwpntnkgz.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_CYuP6U0nmcxPk9ktFfEigg_mZrShnyN';
-
-  // ── SUPABASE HELPERS ──
+  // ── SUPABASE HELPERS (via server proxy — no credentials in frontend) ──
   async function sbGet(table, query='') {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    const res = await fetch('/.netlify/functions/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'GET', table, query })
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
 
   async function sbPost(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    const res = await fetch('/.netlify/functions/db', {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(data)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'POST', table, data })
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
 
   async function sbPatch(table, id, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(data)
+    const res = await fetch('/.netlify/functions/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'PATCH', table, id, data })
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
 
   async function sbDelete(table, id) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    const res = await fetch('/.netlify/functions/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'DELETE', table, id })
     });
     if (!res.ok) throw new Error(await res.text());
   }
