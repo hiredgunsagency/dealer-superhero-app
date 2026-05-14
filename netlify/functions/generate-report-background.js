@@ -177,9 +177,10 @@ JSON structure:
 }
 
 Channels to cover: SEO, Paid Search, Website Experience, Reputation & Reviews, Social Media, Email & CRM, AI Visibility.
-Action plan: 4-6 items ordered by priority. Be specific about investment — never say varies.
-Vendor accountability: cover every vendor listed. If no data is available say so honestly.
-Grades: A=85-100, B=70-84, C=55-69, D=40-54, F=0-39.`;
+Action plan: 4-5 items ordered by priority. Be specific — never say varies.
+Vendor accountability: cover every vendor listed. Be concise.
+Grades: A=85-100, B=70-84, C=55-69, D=40-54, F=0-39.
+Keep findings to 3 per category maximum. Keep descriptions under 2 sentences. Be direct and specific.`;
 
     const userMsg = `Generate the ${monthName} ${year} intelligence report for:
 
@@ -218,7 +219,7 @@ Be specific. Reference real data. Do not be generous with scores.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 6000,
+        max_tokens: 4000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         system,
         messages: [{ role: 'user', content: userMsg }],

@@ -1217,10 +1217,17 @@
       // Step 3 — Show loading UI and start polling
       btn.textContent = 'Generating...';
       output.innerHTML = `
-        <div class="card" style="text-align:center;padding:48px">
-          <div style="width:52px;height:52px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:0 auto 20px"></div>
+        <div class="card" style="text-align:center;padding:48px" id="genCard">
+          <div style="margin:0 auto 20px;width:56px;height:56px">
+            <svg id="genSpinner" viewBox="0 0 56 56" style="width:56px;height:56px">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="var(--border2)" stroke-width="3"/>
+              <path id="spinArc" fill="none" stroke="var(--blue)" stroke-width="3" stroke-linecap="round"
+                d="M28 4 A24 24 0 0 1 52 28"/>
+            </svg>
+          </div>
           <div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px">Generating Intelligence Report</div>
-          <div style="font-size:13px;color:var(--white2);margin-bottom:24px">Researching dealer, competitors, and vendors live...<br>This takes 1-2 minutes. You can navigate away and come back.</div>
+          <div style="font-size:13px;color:var(--white2);margin-bottom:8px">Researching dealer, competitors, and vendors live...</div>
+          <div style="font-size:13px;color:var(--blue-light);font-family:var(--font-h);font-weight:700;margin-bottom:20px" id="elapsedTimer">0:00</div>
           <div id="genSteps" style="text-align:left;display:inline-block">
             <div class="step active" id="gs1"><div class="step-dot">1</div><span>Pulling dealer and vendor data</span></div>
             <div class="step" id="gs2"><div class="step-dot">2</div><span>Researching dealer online presence</span></div>
@@ -1229,8 +1236,32 @@
             <div class="step" id="gs5"><div class="step-dot">5</div><span>Calculating sales ROI</span></div>
             <div class="step" id="gs6"><div class="step-dot">6</div><span>Building action plan</span></div>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:20px" id="pollStatus">Starting analysis...</div>
         </div>`;
+
+      // JS-driven spinner rotation
+      let angle = 0;
+      const spinnerInterval = setInterval(() => {
+        angle = (angle + 6) % 360;
+        const arc = document.getElementById('spinArc');
+        if (!arc) { clearInterval(spinnerInterval); return; }
+        const r = 24, cx = 28, cy = 28;
+        const rad = (a) => (a - 90) * Math.PI / 180;
+        const x1 = cx + r * Math.cos(rad(angle));
+        const y1 = cy + r * Math.sin(rad(angle));
+        const x2 = cx + r * Math.cos(rad(angle + 90));
+        const y2 = cy + r * Math.sin(rad(angle + 90));
+        const large = 0;
+        arc.setAttribute('d', `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`);
+      }, 16);
+
+      // Elapsed time counter
+      const startTime = Date.now();
+      const elapsedInterval = setInterval(() => {
+        const el = document.getElementById('elapsedTimer');
+        if (!el) { clearInterval(elapsedInterval); return; }
+        const secs = Math.floor((Date.now() - startTime) / 1000);
+        el.textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
+      }, 1000);
 
       // Animate steps while waiting
       const stepSeq = [['gs1',0],['gs2',8000],['gs3',18000],['gs4',30000],['gs5',42000],['gs6',55000]];
@@ -1260,6 +1291,8 @@
 
           if (data.status === 'complete' && data.report) {
             clearInterval(poll);
+            clearInterval(spinnerInterval);
+            clearInterval(elapsedInterval);
             stepTimers.forEach(clearTimeout);
             ['gs1','gs2','gs3','gs4','gs5','gs6'].forEach(id => {
               const el = document.getElementById(id);
@@ -1273,6 +1306,8 @@
 
           } else if (data.status === 'failed') {
             clearInterval(poll);
+            clearInterval(spinnerInterval);
+            clearInterval(elapsedInterval);
             stepTimers.forEach(clearTimeout);
             output.innerHTML = `<div class="alert alert-error" style="display:block">Report generation failed: ${data.error || 'Unknown error'}. Please try again.</div>`;
             btn.disabled = false;
@@ -1280,6 +1315,8 @@
 
           } else if (attempts >= maxAttempts) {
             clearInterval(poll);
+            clearInterval(spinnerInterval);
+            clearInterval(elapsedInterval);
             stepTimers.forEach(clearTimeout);
             output.innerHTML = `<div class="alert alert-error" style="display:block">Report is taking longer than expected. Please check back in a few minutes or try regenerating.</div>`;
             btn.disabled = false;
