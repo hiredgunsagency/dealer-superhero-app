@@ -1629,12 +1629,225 @@
 
   // ── AI VISIBILITY PAGE ──
   async function renderAIVisibility() {
-    document.getElementById('pageContent').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">&#129302;</div>
-        <div class="empty-title">AI Visibility Tracker</div>
-        <div class="empty-sub">Track how each dealer appears in Claude, ChatGPT, Gemini, and Perplexity searches month over month. Coming in the next build session.</div>
-      </div>`;
+    document.getElementById('topbarActions').innerHTML = '';
+    try {
+      const dealers = await sbGet('dealers', '?select=*&order=name.asc');
+      const checks = await sbGet('ai_visibility_checks', '?select=*,dealers(name)&order=check_year.desc,check_month.desc&limit=30');
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const now = new Date();
+
+      document.getElementById('pageContent').innerHTML = `
+        <div style="display:grid;grid-template-columns:420px 1fr;gap:20px;align-items:start">
+
+          <div class="card">
+            <div class="section-header" style="margin-bottom:20px">
+              <div><div class="section-title">Log AI Visibility Check</div><div class="section-sub">Run these queries in each LLM and record results</div></div>
+            </div>
+
+            <div class="field" style="margin-bottom:16px">
+              <label>Dealer</label>
+              <select id="av_dealer" onchange="updateSuggestedQueries()">
+                <option value="">Select dealer...</option>
+                ${dealers.map(d => `<option value="${d.id}" data-name="${d.name}" data-brand="${d.brand||''}" data-city="${d.city||''}" data-state="${d.state||''}">${d.name}</option>`).join('')}
+              </select>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+              <div class="field">
+                <label>Month</label>
+                <select id="av_month">
+                  ${months.map((m,i) => `<option value="${i+1}" ${i+1===now.getMonth()+1?'selected':''}>${m}</option>`).join('')}
+                </select>
+              </div>
+              <div class="field">
+                <label>Year</label>
+                <select id="av_year">
+                  <option value="${now.getFullYear()}">${now.getFullYear()}</option>
+                  <option value="${now.getFullYear()-1}">${now.getFullYear()-1}</option>
+                </select>
+              </div>
+            </div>
+
+            <hr class="divider">
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:12px">
+              Suggested Queries to Run
+            </div>
+            <div id="suggestedQueries" style="margin-bottom:16px">
+              <div style="font-size:13px;color:var(--muted)">Select a dealer to see suggested queries.</div>
+            </div>
+
+            <hr class="divider">
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">
+              Results by LLM
+            </div>
+
+            ${['Claude','ChatGPT','Gemini','Perplexity'].map(llm => `
+              <div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
+                <div style="font-family:var(--font-h);font-size:11px;font-weight:700;margin-bottom:10px">${llm}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                  <div class="field">
+                    <label>Mentioned?</label>
+                    <select id="av_${llm.toLowerCase()}_mentioned">
+                      <option value="">—</option>
+                      <option value="yes">Yes — mentioned</option>
+                      <option value="no">No — not found</option>
+                      <option value="partial">Partial — area only</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Sentiment</label>
+                    <select id="av_${llm.toLowerCase()}_sentiment">
+                      <option value="">—</option>
+                      <option value="positive">Positive</option>
+                      <option value="neutral">Neutral</option>
+                      <option value="negative">Negative</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>How were they mentioned?</label>
+                  <input type="text" id="av_${llm.toLowerCase()}_detail" placeholder="e.g. Listed as top-rated Ford dealer in Glenwood Springs"/>
+                </div>
+              </div>`).join('')}
+
+            <div class="field" style="margin-top:4px">
+              <label>Overall Score (0-100)</label>
+              <input type="number" id="av_score" placeholder="e.g. 72" min="0" max="100"/>
+              <div class="field-hint">Your overall assessment of their AI search visibility this month</div>
+            </div>
+
+            <div class="field">
+              <label>Notes</label>
+              <textarea id="av_notes" placeholder="Any additional observations about how this dealer appears in AI searches..."></textarea>
+            </div>
+
+            <div class="alert alert-success" id="avAlert" style="margin-top:12px"></div>
+            <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveAIVisibilityCheck()">Save AI Visibility Check</button>
+          </div>
+
+          <div class="card">
+            <div class="section-header" style="margin-bottom:20px">
+              <div><div class="section-title">AI Visibility History</div><div class="section-sub">Month over month LLM presence tracking</div></div>
+            </div>
+            ${checks.length === 0
+              ? `<div class="empty" style="padding:30px 0">
+                  <div class="empty-icon" style="font-size:32px">&#129302;</div>
+                  <div class="empty-title">No checks logged yet</div>
+                  <div class="empty-sub">Run your first AI visibility check to start tracking.</div>
+                </div>`
+              : `<div class="table-wrap"><table>
+                  <tr><th>Dealer</th><th>Period</th><th>Score</th><th>Claude</th><th>ChatGPT</th><th>Gemini</th><th>Perplexity</th><th></th></tr>
+                  ${checks.map(c => {
+                    const results = c.mention_details || {};
+                    const dot = (v) => v === 'yes' ? `<span style="color:var(--success)">&#9679;</span>` : v === 'no' ? `<span style="color:var(--danger)">&#9679;</span>` : v === 'partial' ? `<span style="color:var(--warning)">&#9679;</span>` : `<span style="color:var(--border2)">&#9679;</span>`;
+                    const sc = c.overall_score ? scoreColor(c.overall_score) : 'var(--muted)';
+                    return `<tr>
+                      <td class="td-main">${c.dealers?.name || '—'}</td>
+                      <td>${months[c.check_month-1]} ${c.check_year}</td>
+                      <td style="font-family:var(--font-h);font-size:13px;font-weight:700;color:${sc}">${c.overall_score || '—'}</td>
+                      <td style="font-size:18px;text-align:center">${dot(results.claude?.mentioned)}</td>
+                      <td style="font-size:18px;text-align:center">${dot(results.chatgpt?.mentioned)}</td>
+                      <td style="font-size:18px;text-align:center">${dot(results.gemini?.mentioned)}</td>
+                      <td style="font-size:18px;text-align:center">${dot(results.perplexity?.mentioned)}</td>
+                      <td><button class="btn btn-danger btn-sm" onclick="deleteAICheck('${c.id}')">Delete</button></td>
+                    </tr>`;
+                  }).join('')}
+                </table></div>
+                <div style="margin-top:14px;font-size:12px;color:var(--muted)">
+                  &#9679; Green = mentioned &nbsp; &#9679; Yellow = partial &nbsp; &#9679; Red = not found
+                </div>`}
+          </div>
+        </div>`;
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
+  }
+
+  function updateSuggestedQueries() {
+    const sel = document.getElementById('av_dealer');
+    const opt = sel.options[sel.selectedIndex];
+    const el = document.getElementById('suggestedQueries');
+    if (!opt || !opt.value) {
+      el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Select a dealer to see suggested queries.</div>';
+      return;
+    }
+    const name = opt.dataset.name || '';
+    const brand = opt.dataset.brand || 'auto';
+    const city = opt.dataset.city || '';
+    const state = opt.dataset.state || '';
+    const location = [city, state].filter(Boolean).join(', ');
+
+    const queries = [
+      `Best ${brand} dealer near ${city || 'me'}`,
+      `Top-rated ${brand} dealer in ${location || 'my area'}`,
+      `${brand} dealer ${location} reviews`,
+      `Where to buy a ${brand} in ${location || 'my area'}`,
+      `${name} ${city} — is it a good dealership?`,
+    ];
+
+    el.innerHTML = queries.map((q, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0">${i+1}</span>
+        <span style="color:var(--white2);flex:1">${q}</span>
+        <button onclick="navigator.clipboard.writeText('${q.replace(/'/g,"\\'")}').catch(()=>{})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 8px">Copy</button>
+      </div>`).join('');
+  }
+
+  async function saveAIVisibilityCheck() {
+    const dealerId = document.getElementById('av_dealer').value;
+    const month = parseInt(document.getElementById('av_month').value);
+    const year = parseInt(document.getElementById('av_year').value);
+    const alert = document.getElementById('avAlert');
+    alert.style.display = 'none';
+
+    if (!dealerId) { alert.textContent = 'Please select a dealer.'; alert.className = 'alert alert-error'; alert.style.display = 'block'; return; }
+
+    const llms = ['claude','chatgpt','gemini','perplexity'];
+    const mentionDetails = {};
+    llms.forEach(llm => {
+      mentionDetails[llm] = {
+        mentioned: document.getElementById(`av_${llm}_mentioned`)?.value || '',
+        sentiment: document.getElementById(`av_${llm}_sentiment`)?.value || '',
+        detail: document.getElementById(`av_${llm}_detail`)?.value?.trim() || '',
+      };
+    });
+
+    const data = {
+      dealer_id: dealerId,
+      check_month: month,
+      check_year: year,
+      mentioned_in_claude: mentionDetails.claude.mentioned === 'yes',
+      mentioned_in_chatgpt: mentionDetails.chatgpt.mentioned === 'yes',
+      mentioned_in_gemini: mentionDetails.gemini.mentioned === 'yes',
+      mentioned_in_perplexity: mentionDetails.perplexity.mentioned === 'yes',
+      mention_details: mentionDetails,
+      llms_checked: ['Claude','ChatGPT','Gemini','Perplexity'],
+      overall_score: parseInt(document.getElementById('av_score').value) || null,
+      notes: document.getElementById('av_notes').value.trim(),
+      queries_tested: Array.from(document.querySelectorAll('#suggestedQueries [style*="border-bottom"] span:nth-child(2)')).map(el => el.textContent),
+    };
+
+    try {
+      await sbPost('ai_visibility_checks', data);
+      alert.textContent = 'AI visibility check saved successfully!';
+      alert.className = 'alert alert-success';
+      alert.style.display = 'block';
+      setTimeout(() => renderAIVisibility(), 1200);
+    } catch(e) {
+      alert.textContent = 'Error saving: ' + e.message;
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+    }
+  }
+
+  async function deleteAICheck(checkId) {
+    if (!confirm('Delete this AI visibility check? This cannot be undone.')) return;
+    try {
+      await sbDelete('ai_visibility_checks', checkId);
+      renderAIVisibility();
+    } catch(e) {
+      alert('Error deleting: ' + e.message);
+    }
   }
 
   // ── MODALS ──
