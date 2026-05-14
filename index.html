@@ -1637,11 +1637,11 @@
       const now = new Date();
 
       document.getElementById('pageContent').innerHTML = `
-        <div style="display:grid;grid-template-columns:420px 1fr;gap:20px;align-items:start">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
 
           <div class="card">
             <div class="section-header" style="margin-bottom:20px">
-              <div><div class="section-title">Log AI Visibility Check</div><div class="section-sub">Run these queries in each LLM and record results</div></div>
+              <div><div class="section-title">New AI Visibility Check</div><div class="section-sub">Paste raw LLM responses — AI will analyze and score</div></div>
             </div>
 
             <div class="field" style="margin-bottom:16px">
@@ -1669,93 +1669,62 @@
             </div>
 
             <hr class="divider">
-            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:12px">
-              Suggested Queries to Run
-            </div>
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px">Step 1 — Run These Queries in Each LLM</div>
             <div id="suggestedQueries" style="margin-bottom:16px">
-              <div style="font-size:13px;color:var(--muted)">Select a dealer to see suggested queries.</div>
+              <div style="font-size:13px;color:var(--muted)">Select a dealer above to see suggested queries.</div>
             </div>
 
             <hr class="divider">
-            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">
-              Results by LLM
-            </div>
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:6px">Step 2 — Paste Responses</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Copy and paste the full response from each LLM. Include all query results together per LLM.</div>
 
             ${['Claude','ChatGPT','Gemini','Perplexity'].map(llm => `
-              <div style="background:var(--card2);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
-                <div style="font-family:var(--font-h);font-size:11px;font-weight:700;margin-bottom:10px">${llm}</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                  <div class="field">
-                    <label>Mentioned?</label>
-                    <select id="av_${llm.toLowerCase()}_mentioned">
-                      <option value="">—</option>
-                      <option value="yes">Yes — mentioned</option>
-                      <option value="no">No — not found</option>
-                      <option value="partial">Partial — area only</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label>Sentiment</label>
-                    <select id="av_${llm.toLowerCase()}_sentiment">
-                      <option value="">—</option>
-                      <option value="positive">Positive</option>
-                      <option value="neutral">Neutral</option>
-                      <option value="negative">Negative</option>
-                    </select>
-                  </div>
-                </div>
+              <div style="margin-bottom:14px">
                 <div class="field">
-                  <label>How were they mentioned?</label>
-                  <input type="text" id="av_${llm.toLowerCase()}_detail" placeholder="e.g. Listed as top-rated Ford dealer in Glenwood Springs"/>
+                  <label>${llm} — Paste all responses here</label>
+                  <textarea id="av_${llm.toLowerCase()}_raw" placeholder="Paste everything ${llm} said across all queries..." style="min-height:100px"></textarea>
                 </div>
               </div>`).join('')}
 
-            <div class="field" style="margin-top:4px">
-              <label>Overall Score (0-100)</label>
-              <input type="number" id="av_score" placeholder="e.g. 72" min="0" max="100"/>
-              <div class="field-hint">Your overall assessment of their AI search visibility this month</div>
-            </div>
+            <hr class="divider">
+            <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px">Step 3 — Analyze</div>
 
-            <div class="field">
-              <label>Notes</label>
-              <textarea id="av_notes" placeholder="Any additional observations about how this dealer appears in AI searches..."></textarea>
-            </div>
-
-            <div class="alert alert-success" id="avAlert" style="margin-top:12px"></div>
-            <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveAIVisibilityCheck()">Save AI Visibility Check</button>
+            <div class="alert" id="avAlert" style="margin-bottom:12px"></div>
+            <button class="btn btn-primary" style="width:100%" id="avAnalyzeBtn" onclick="analyzeAIVisibility()">Analyze with AI &rarr;</button>
           </div>
 
-          <div class="card">
-            <div class="section-header" style="margin-bottom:20px">
-              <div><div class="section-title">AI Visibility History</div><div class="section-sub">Month over month LLM presence tracking</div></div>
+          <div>
+            <div class="card" id="avResultCard" style="margin-bottom:16px;display:none"></div>
+
+            <div class="card">
+              <div class="section-header" style="margin-bottom:20px">
+                <div><div class="section-title">AI Visibility History</div><div class="section-sub">Month over month LLM presence</div></div>
+              </div>
+              ${checks.length === 0
+                ? `<div class="empty" style="padding:30px 0">
+                    <div class="empty-icon" style="font-size:32px">&#129302;</div>
+                    <div class="empty-title">No checks logged yet</div>
+                    <div class="empty-sub">Run your first AI visibility check to start tracking.</div>
+                  </div>`
+                : `<div class="table-wrap"><table>
+                    <tr><th>Dealer</th><th>Period</th><th>Score</th><th>Claude</th><th>ChatGPT</th><th>Gemini</th><th>Perplexity</th><th></th></tr>
+                    ${checks.map(c => {
+                      const dot = (v) => v ? `<span style="color:var(--success);font-size:16px">&#9679;</span>` : `<span style="color:var(--danger);font-size:16px">&#9679;</span>`;
+                      const sc = c.overall_score ? scoreColor(c.overall_score) : 'var(--muted)';
+                      return `<tr>
+                        <td class="td-main" style="cursor:pointer" onclick="viewAICheck('${c.id}')">${c.dealers?.name || '—'}</td>
+                        <td>${months[c.check_month-1]} ${c.check_year}</td>
+                        <td style="font-family:var(--font-h);font-size:14px;font-weight:700;color:${sc}">${c.overall_score || '—'}</td>
+                        <td style="text-align:center">${dot(c.mentioned_in_claude)}</td>
+                        <td style="text-align:center">${dot(c.mentioned_in_chatgpt)}</td>
+                        <td style="text-align:center">${dot(c.mentioned_in_gemini)}</td>
+                        <td style="text-align:center">${dot(c.mentioned_in_perplexity)}</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteAICheck('${c.id}')">Delete</button></td>
+                      </tr>`;
+                    }).join('')}
+                  </table></div>
+                  <div style="margin-top:12px;font-size:12px;color:var(--muted)">&#9679; Green = mentioned &nbsp; &#9679; Red = not found. Click dealer name to view details.</div>`}
             </div>
-            ${checks.length === 0
-              ? `<div class="empty" style="padding:30px 0">
-                  <div class="empty-icon" style="font-size:32px">&#129302;</div>
-                  <div class="empty-title">No checks logged yet</div>
-                  <div class="empty-sub">Run your first AI visibility check to start tracking.</div>
-                </div>`
-              : `<div class="table-wrap"><table>
-                  <tr><th>Dealer</th><th>Period</th><th>Score</th><th>Claude</th><th>ChatGPT</th><th>Gemini</th><th>Perplexity</th><th></th></tr>
-                  ${checks.map(c => {
-                    const results = c.mention_details || {};
-                    const dot = (v) => v === 'yes' ? `<span style="color:var(--success)">&#9679;</span>` : v === 'no' ? `<span style="color:var(--danger)">&#9679;</span>` : v === 'partial' ? `<span style="color:var(--warning)">&#9679;</span>` : `<span style="color:var(--border2)">&#9679;</span>`;
-                    const sc = c.overall_score ? scoreColor(c.overall_score) : 'var(--muted)';
-                    return `<tr>
-                      <td class="td-main">${c.dealers?.name || '—'}</td>
-                      <td>${months[c.check_month-1]} ${c.check_year}</td>
-                      <td style="font-family:var(--font-h);font-size:13px;font-weight:700;color:${sc}">${c.overall_score || '—'}</td>
-                      <td style="font-size:18px;text-align:center">${dot(results.claude?.mentioned)}</td>
-                      <td style="font-size:18px;text-align:center">${dot(results.chatgpt?.mentioned)}</td>
-                      <td style="font-size:18px;text-align:center">${dot(results.gemini?.mentioned)}</td>
-                      <td style="font-size:18px;text-align:center">${dot(results.perplexity?.mentioned)}</td>
-                      <td><button class="btn btn-danger btn-sm" onclick="deleteAICheck('${c.id}')">Delete</button></td>
-                    </tr>`;
-                  }).join('')}
-                </table></div>
-                <div style="margin-top:14px;font-size:12px;color:var(--muted)">
-                  &#9679; Green = mentioned &nbsp; &#9679; Yellow = partial &nbsp; &#9679; Red = not found
-                </div>`}
           </div>
         </div>`;
     } catch(e) {
@@ -1768,7 +1737,7 @@
     const opt = sel.options[sel.selectedIndex];
     const el = document.getElementById('suggestedQueries');
     if (!opt || !opt.value) {
-      el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Select a dealer to see suggested queries.</div>';
+      el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Select a dealer above to see suggested queries.</div>';
       return;
     }
     const name = opt.dataset.name || '';
@@ -1781,62 +1750,254 @@
       `Best ${brand} dealer near ${city || 'me'}`,
       `Top-rated ${brand} dealer in ${location || 'my area'}`,
       `${brand} dealer ${location} reviews`,
-      `Where to buy a ${brand} in ${location || 'my area'}`,
-      `${name} ${city} — is it a good dealership?`,
+      `Where to buy a new ${brand} in ${location || 'my area'}`,
+      `Is ${name} a good dealership?`,
     ];
 
-    el.innerHTML = queries.map((q, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0">${i+1}</span>
-        <span style="color:var(--white2);flex:1">${q}</span>
-        <button onclick="navigator.clipboard.writeText('${q.replace(/'/g,"\\'")}').catch(()=>{})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 8px">Copy</button>
-      </div>`).join('');
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Run each of these in Claude, ChatGPT, Gemini, and Perplexity:</div>` +
+      queries.map((q, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;width:16px">${i+1}</span>
+          <span style="color:var(--white2);flex:1">${q}</span>
+          <button onclick="navigator.clipboard.writeText(${JSON.stringify(q)}).catch(()=>{})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px">Copy</button>
+        </div>`).join('');
   }
 
-  async function saveAIVisibilityCheck() {
+  async function analyzeAIVisibility() {
     const dealerId = document.getElementById('av_dealer').value;
     const month = parseInt(document.getElementById('av_month').value);
     const year = parseInt(document.getElementById('av_year').value);
     const alert = document.getElementById('avAlert');
     alert.style.display = 'none';
 
-    if (!dealerId) { alert.textContent = 'Please select a dealer.'; alert.className = 'alert alert-error'; alert.style.display = 'block'; return; }
+    if (!dealerId) {
+      alert.textContent = 'Please select a dealer.';
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+      return;
+    }
 
-    const llms = ['claude','chatgpt','gemini','perplexity'];
-    const mentionDetails = {};
-    llms.forEach(llm => {
-      mentionDetails[llm] = {
-        mentioned: document.getElementById(`av_${llm}_mentioned`)?.value || '',
-        sentiment: document.getElementById(`av_${llm}_sentiment`)?.value || '',
-        detail: document.getElementById(`av_${llm}_detail`)?.value?.trim() || '',
-      };
+    const llmData = {};
+    let hasAnyContent = false;
+    ['claude','chatgpt','gemini','perplexity'].forEach(llm => {
+      const val = document.getElementById(`av_${llm}_raw`)?.value?.trim() || '';
+      llmData[llm] = val;
+      if (val) hasAnyContent = true;
+    });
+
+    if (!hasAnyContent) {
+      alert.textContent = 'Please paste at least one LLM response before analyzing.';
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+      return;
+    }
+
+    const sel = document.getElementById('av_dealer');
+    const opt = sel.options[sel.selectedIndex];
+    const dealerName = opt?.dataset?.name || 'this dealer';
+    const brand = opt?.dataset?.brand || '';
+    const city = opt?.dataset?.city || '';
+
+    const btn = document.getElementById('avAnalyzeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+
+    const resultCard = document.getElementById('avResultCard');
+    resultCard.style.display = 'block';
+    resultCard.innerHTML = `<div style="text-align:center;padding:32px">
+      <div class="spinner" style="margin:0 auto 16px"></div>
+      <div style="font-size:13px;color:var(--white2)">Analyzing LLM responses...</div>
+    </div>`;
+
+    try {
+      const prompt = `You are an automotive digital marketing expert analyzing how a car dealership appears in AI-powered search results.
+
+Dealer: ${dealerName} (${brand} dealer in ${city})
+
+Below are the raw responses from each LLM when searched for this dealer. Analyze them and return ONLY valid JSON:
+
+{
+  "overallScore": <0-100>,
+  "summary": "<2-3 sentences summarizing how this dealer appears across AI search overall>",
+  "mentioned_in_claude": <true/false>,
+  "mentioned_in_chatgpt": <true/false>,
+  "mentioned_in_gemini": <true/false>,
+  "mentioned_in_perplexity": <true/false>,
+  "findings": [
+    { "status": "<pass|warn|fail>", "text": "<specific finding about AI visibility>" }
+  ],
+  "recommendations": [
+    "<specific actionable recommendation to improve AI search visibility>"
+  ],
+  "llmBreakdown": {
+    "claude": { "mentioned": <true/false>, "sentiment": "<positive|neutral|negative|none>", "summary": "<1 sentence>" },
+    "chatgpt": { "mentioned": <true/false>, "sentiment": "<positive|neutral|negative|none>", "summary": "<1 sentence>" },
+    "gemini": { "mentioned": <true/false>, "sentiment": "<positive|neutral|negative|none>", "summary": "<1 sentence>" },
+    "perplexity": { "mentioned": <true/false>, "sentiment": "<positive|neutral|negative|none>", "summary": "<1 sentence>" }
+  }
+}
+
+Score guide: 85-100=dealer mentioned positively in most LLMs, 70-84=mentioned in some, 55-69=partial mentions only, 40-54=rarely mentioned, 0-39=not found.
+Provide 3-5 findings and 3-4 recommendations.
+
+CLAUDE RESPONSES:
+${llmData.claude || 'No data provided'}
+
+CHATGPT RESPONSES:
+${llmData.chatgpt || 'No data provided'}
+
+GEMINI RESPONSES:
+${llmData.gemini || 'No data provided'}
+
+PERPLEXITY RESPONSES:
+${llmData.perplexity || 'No data provided'}`;
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!res.ok) throw new Error('API error ' + res.status);
+      const data = await res.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      let clean = text.replace(/```json\s*/gi,'').replace(/```/g,'').trim();
+      const first = clean.indexOf('{'), last = clean.lastIndexOf('}');
+      if (first === -1 || last === -1) throw new Error('Invalid response from AI');
+      const analysis = JSON.parse(clean.slice(first, last+1));
+
+      // Render result
+      const sc = scoreColor(analysis.overallScore || 0);
+      const fh = (analysis.findings||[]).map(f => {
+        const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
+        const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
+        return `<div style="display:flex;gap:8px;margin-bottom:7px;font-size:13px;color:var(--white2);align-items:flex-start;line-height:1.5"><span class="badge ${bc}">${lb}</span><span>${f.text}</span></div>`;
+      }).join('');
+      const rh = (analysis.recommendations||[]).map(r => `<div style="font-size:13px;color:var(--white2);padding:7px 0 7px 12px;border-left:2px solid var(--blue);margin-bottom:7px;line-height:1.55">${r}</div>`).join('');
+      const llmBk = analysis.llmBreakdown || {};
+      const llmRow = ['claude','chatgpt','gemini','perplexity'].map(llm => {
+        const d = llmBk[llm] || {};
+        const mentioned = d.mentioned;
+        const dotColor = mentioned ? 'var(--success)' : 'var(--danger)';
+        const sentColor = d.sentiment==='positive'?'var(--success)':d.sentiment==='negative'?'var(--danger)':'var(--muted)';
+        return `<div style="background:var(--card2);border-radius:var(--rs);padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="color:${dotColor};font-size:14px">&#9679;</span>
+            <span style="font-family:var(--font-h);font-size:11px;font-weight:700">${llm.charAt(0).toUpperCase()+llm.slice(1)}</span>
+            ${d.sentiment ? `<span style="font-size:11px;color:${sentColor};margin-left:auto">${d.sentiment}</span>` : ''}
+          </div>
+          ${d.summary ? `<div style="font-size:12px;color:var(--white2);line-height:1.5">${d.summary}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      resultCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+          <div style="width:72px;height:72px;border-radius:50%;border:3px solid ${sc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-family:var(--font-h);font-size:26px;font-weight:900;color:${sc};line-height:1">${analysis.overallScore}</div>
+            <div style="font-size:9px;color:${sc};opacity:0.7">SCORE</div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--blue-light);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">AI Visibility Analysis</div>
+            <div style="font-size:14px;color:var(--white2);line-height:1.7">${analysis.summary}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">${llmRow}</div>
+        ${fh ? `<div style="margin-bottom:14px">${fh}</div>` : ''}
+        ${rh ? `<div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Recommendations</div>${rh}` : ''}
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" style="width:100%" onclick="saveAIVisibilityCheck(${JSON.stringify(analysis).replace(/"/g,'&quot;')})">Save This Check</button>
+        </div>`;
+
+    } catch(e) {
+      resultCard.innerHTML = `<div class="alert alert-error" style="display:block">Analysis failed: ${e.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Analyze with AI →';
+  }
+
+  async function saveAIVisibilityCheck(analysis) {
+    const dealerId = document.getElementById('av_dealer').value;
+    const month = parseInt(document.getElementById('av_month').value);
+    const year = parseInt(document.getElementById('av_year').value);
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    const llmRaw = {};
+    ['claude','chatgpt','gemini','perplexity'].forEach(llm => {
+      llmRaw[llm] = document.getElementById(`av_${llm}_raw`)?.value?.trim() || '';
     });
 
     const data = {
       dealer_id: dealerId,
       check_month: month,
       check_year: year,
-      mentioned_in_claude: mentionDetails.claude.mentioned === 'yes',
-      mentioned_in_chatgpt: mentionDetails.chatgpt.mentioned === 'yes',
-      mentioned_in_gemini: mentionDetails.gemini.mentioned === 'yes',
-      mentioned_in_perplexity: mentionDetails.perplexity.mentioned === 'yes',
-      mention_details: mentionDetails,
+      mentioned_in_claude: analysis.mentioned_in_claude || false,
+      mentioned_in_chatgpt: analysis.mentioned_in_chatgpt || false,
+      mentioned_in_gemini: analysis.mentioned_in_gemini || false,
+      mentioned_in_perplexity: analysis.mentioned_in_perplexity || false,
+      mention_details: { ...analysis.llmBreakdown, raw: llmRaw },
       llms_checked: ['Claude','ChatGPT','Gemini','Perplexity'],
-      overall_score: parseInt(document.getElementById('av_score').value) || null,
-      notes: document.getElementById('av_notes').value.trim(),
-      queries_tested: Array.from(document.querySelectorAll('#suggestedQueries [style*="border-bottom"] span:nth-child(2)')).map(el => el.textContent),
+      overall_score: analysis.overallScore || null,
+      notes: analysis.summary || '',
     };
 
     try {
       await sbPost('ai_visibility_checks', data);
-      alert.textContent = 'AI visibility check saved successfully!';
-      alert.className = 'alert alert-success';
-      alert.style.display = 'block';
-      setTimeout(() => renderAIVisibility(), 1200);
+      document.getElementById('avResultCard').innerHTML = `
+        <div style="background:var(--success-bg);border:1px solid rgba(34,197,94,0.3);border-radius:var(--rs);padding:16px;font-size:14px;color:var(--success);text-align:center">
+          &#10003; AI Visibility check saved for ${months[month-1]} ${year}
+        </div>`;
+      setTimeout(() => renderAIVisibility(), 1500);
     } catch(e) {
-      alert.textContent = 'Error saving: ' + e.message;
-      alert.className = 'alert alert-error';
-      alert.style.display = 'block';
+      alert('Error saving: ' + e.message);
+    }
+  }
+
+  async function viewAICheck(checkId) {
+    try {
+      const rows = await sbGet('ai_visibility_checks', `?id=eq.${checkId}&select=*,dealers(name)`);
+      const c = rows[0];
+      if (!c) return;
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const details = c.mention_details || {};
+      const sc = c.overall_score ? scoreColor(c.overall_score) : 'var(--muted)';
+
+      const resultCard = document.getElementById('avResultCard');
+      if (!resultCard) return;
+      resultCard.style.display = 'block';
+
+      const llmRow = ['claude','chatgpt','gemini','perplexity'].map(llm => {
+        const d = details[llm] || {};
+        const mentioned = llm === 'claude' ? c.mentioned_in_claude : llm === 'chatgpt' ? c.mentioned_in_chatgpt : llm === 'gemini' ? c.mentioned_in_gemini : c.mentioned_in_perplexity;
+        const dotColor = mentioned ? 'var(--success)' : 'var(--danger)';
+        const sentColor = d.sentiment==='positive'?'var(--success)':d.sentiment==='negative'?'var(--danger)':'var(--muted)';
+        return `<div style="background:var(--card2);border-radius:var(--rs);padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="color:${dotColor};font-size:14px">&#9679;</span>
+            <span style="font-family:var(--font-h);font-size:11px;font-weight:700">${llm.charAt(0).toUpperCase()+llm.slice(1)}</span>
+            ${d.sentiment ? `<span style="font-size:11px;color:${sentColor};margin-left:auto">${d.sentiment}</span>` : ''}
+          </div>
+          ${d.summary ? `<div style="font-size:12px;color:var(--white2);line-height:1.5">${d.summary}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      resultCard.innerHTML = `
+        <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">
+          ${c.dealers?.name} &middot; ${months[c.check_month-1]} ${c.check_year}
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+          <div style="width:60px;height:60px;border-radius:50%;border:3px solid ${sc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-family:var(--font-h);font-size:22px;font-weight:900;color:${sc};line-height:1">${c.overall_score || '—'}</div>
+          </div>
+          <div style="font-size:14px;color:var(--white2);line-height:1.7">${c.notes || 'No summary available.'}</div>
+        </div>
+        ${llmRow}`;
+    } catch(e) {
+      console.warn('Error viewing check:', e.message);
     }
   }
 
