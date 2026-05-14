@@ -1883,23 +1883,15 @@ ${llmData.gemini || 'No data provided'}
 PERPLEXITY RESPONSES:
 ${llmData.perplexity || 'No data provided'}`;
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/.netlify/functions/analyze-visibility', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
 
-      if (!res.ok) throw new Error('API error ' + res.status);
-      const data = await res.json();
-      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-      let clean = text.replace(/```json\s*/gi,'').replace(/```/g,'').trim();
-      const first = clean.indexOf('{'), last = clean.lastIndexOf('}');
-      if (first === -1 || last === -1) throw new Error('Invalid response from AI');
-      const analysis = JSON.parse(clean.slice(first, last+1));
+      if (!res.ok) throw new Error('Server error ' + res.status);
+      const analysis = await res.json();
+      if (analysis.error) throw new Error(analysis.error);
 
       // Render result
       const sc = scoreColor(analysis.overallScore || 0);
