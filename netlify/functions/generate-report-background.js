@@ -219,7 +219,7 @@ Be specific. Reference real data. Do not be generous with scores.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 5500,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         system,
         messages: [{ role: 'user', content: userMsg }],
@@ -239,7 +239,39 @@ Be specific. Reference real data. Do not be generous with scores.`;
     const first = clean.indexOf('{');
     const last = clean.lastIndexOf('}');
     if (first === -1 || last === -1) throw new Error('No JSON in AI response');
-    const report = JSON.parse(clean.slice(first, last + 1));
+    clean = clean.slice(first, last + 1);
+
+    let report;
+    try {
+      report = JSON.parse(clean);
+    } catch(parseErr) {
+      // JSON was likely truncated — try to recover by closing open structures
+      console.warn('JSON parse failed, attempting repair. Error:', parseErr.message);
+      try {
+        let repaired = clean;
+        // Count unclosed braces and brackets
+        let braces = 0, brackets = 0, inStr = false, escape = false;
+        for (const ch of repaired) {
+          if (escape) { escape = false; continue; }
+          if (ch === '\\' && inStr) { escape = true; continue; }
+          if (ch === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (ch === '{') braces++;
+          else if (ch === '}') braces--;
+          else if (ch === '[') brackets++;
+          else if (ch === ']') brackets--;
+        }
+        // Remove trailing incomplete string/value
+        repaired = repaired.replace(/,\s*$/, '').replace(/:\s*$/, ':null');
+        // Close open arrays and objects
+        while (brackets > 0) { repaired += ']'; brackets--; }
+        while (braces > 0) { repaired += '}'; braces--; }
+        report = JSON.parse(repaired);
+        console.log('JSON repair succeeded');
+      } catch(repairErr) {
+        throw new Error('Failed to parse AI response — JSON truncated. Try regenerating. Original error: ' + parseErr.message);
+      }
+    }
 
     // Save completed report to Supabase
     await sbPatch(`monthly_reports?job_id=eq.${job_id}`, {

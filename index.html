@@ -1161,7 +1161,10 @@
                       <td>${r.overall_score ? Math.round(r.overall_score)+'/100' : '—'}</td>
                       <td><span style="font-family:var(--font-h);font-size:14px;font-weight:900;color:${gc}">${grade}</span></td>
                       <td><span class="badge badge-${r.status}">${r.status}</span></td>
-                      <td><button class="btn btn-ghost btn-sm" onclick="loadSavedReport('${r.id}')">View</button></td>
+                      <td style="display:flex;gap:6px;padding:12px 16px">
+                        <button class="btn btn-ghost btn-sm" onclick="loadSavedReport('${r.id}')">View</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteReport('${r.id}')">Delete</button>
+                      </td>
                     </tr>`;
                   }).join('')}
                 </table></div>`}
@@ -1559,6 +1562,18 @@
     if (s >= 55) return '#F59E0B';
     if (s >= 40) return '#F97316';
     return '#EF4444';
+  }
+
+  async function deleteReport(reportId) {
+    if (!confirm('Delete this report? This cannot be undone.')) return;
+    try {
+      await sbDelete('monthly_reports', reportId);
+      const output = document.getElementById('reportOutput');
+      if (output) output.innerHTML = '';
+      renderReports();
+    } catch(e) {
+      alert('Error deleting report: ' + e.message);
+    }
   }
 
   async function loadSavedReport(reportId) {
