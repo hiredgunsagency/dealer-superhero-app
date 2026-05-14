@@ -614,17 +614,17 @@
       <button class="btn btn-ghost btn-sm" onclick="editDealer('${id}')">Edit Dealer</button>
       <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${id}')">+ Competitor</button>
       <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>`;
-
-    // Store dealer data for edit button
-    window._currentDealer = d;
     try {
-    const [dealers, vendors, competitors] = await Promise.all([
-      sbGet('dealers', `?id=eq.${id}`),
-      sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`),
-      sbGet('competitors', `?dealer_id=eq.${id}&order=display_order.asc`),
-    ]);
+      const [dealers, vendors, competitors] = await Promise.all([
+        sbGet('dealers', `?id=eq.${id}`),
+        sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`),
+        sbGet('competitors', `?dealer_id=eq.${id}&order=display_order.asc`),
+      ]);
       const d = dealers[0];
       if (!d) { document.getElementById('pageContent').innerHTML = '<div class="empty"><div class="empty-title">Dealer not found</div></div>'; return; }
+
+      // Store dealer data for edit button — must be after d is defined
+      window._currentDealer = d;
 
       document.getElementById('topbarTitle').textContent = d.name;
 
