@@ -587,9 +587,12 @@
   async function renderDealerDetail(id) {
     document.getElementById('topbarActions').innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="showPage('dealers')">&#8592; All Dealers</button>
-      <button class="btn btn-ghost btn-sm" onclick="openDealerModal('${id}', ${JSON.stringify(d).replace(/"/g,'&quot;')})">Edit Dealer</button>
+      <button class="btn btn-ghost btn-sm" onclick="editDealer('${id}')">Edit Dealer</button>
       <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${id}')">+ Competitor</button>
       <button class="btn btn-primary btn-sm" onclick="openVendorModal('${id}')">+ Add Vendor</button>`;
+
+    // Store dealer data for edit button
+    window._currentDealer = d;
     try {
       const [dealers, vendors, competitors] = await Promise.all([
         sbGet('dealers', `?id=eq.${id}`),
@@ -771,7 +774,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${priorityColor};background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:100px;border:1px solid ${priorityColor}">${priority}</span>
-          <button class="btn btn-ghost btn-sm" onclick="openCompetitorModal('${c.dealer_id}', ${JSON.stringify(c).replace(/"/g,'&quot;')})">Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="editCompetitor('${c.id}','${c.dealer_id}')">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteCompetitor('${c.id}','${c.dealer_id}')">Delete</button>
         </div>
       </div>
@@ -989,6 +992,24 @@
     }
   }
 
+  function editDealer(id) {
+    openDealerModal(id, window._currentDealer);
+  }
+
+  async function editVendor(vendorId, dealerId) {
+    try {
+      const vendors = await sbGet('vendors', `?id=eq.${vendorId}`);
+      openVendorModal(dealerId, vendors[0]);
+    } catch(e) { alert('Error loading vendor: ' + e.message); }
+  }
+
+  async function editCompetitor(competitorId, dealerId) {
+    try {
+      const comps = await sbGet('competitors', `?id=eq.${competitorId}`);
+      openCompetitorModal(dealerId, comps[0]);
+    } catch(e) { alert('Error loading competitor: ' + e.message); }
+  }
+
   async function deleteVendor(vendorId, dealerId) {
     if (!confirm('Delete this vendor? This will also remove their attribution data. This cannot be undone.')) return;
     try {
@@ -1027,7 +1048,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="badge badge-${v.status}">${v.status}</span>
-          <button class="btn btn-ghost btn-sm" onclick="openVendorModal('${v.dealer_id}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="editVendor('${v.id}','${v.dealer_id}')">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteVendor('${v.id}','${v.dealer_id}')">Delete</button>
         </div>
       </div>
