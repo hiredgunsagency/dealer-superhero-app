@@ -1756,27 +1756,42 @@
 
     window._suggestedQueries = queries;
 
-    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Run each of these in Claude, ChatGPT, Gemini, and Perplexity:</div>` +
-      queries.map((q, i) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+    const batchPrompt = `I'm researching ${brand} dealers in the ${location} area. Can you help me with these questions:\n\n` + queries.map((q,i) => `${i+1}. ${q}`).join('\n');
+    window._batchPrompt = batchPrompt;
+
+    el.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Run all 5 as one prompt in each LLM — use the Copy All button below:</div>
+      ${queries.map((q, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
           <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;width:16px">${i+1}</span>
           <span style="color:var(--white2);flex:1">${q}</span>
-          <button onclick="copyQuery(${i})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px">Copy</button>
-        </div>`).join('');
+        </div>`).join('')}
+      <button onclick="copyBatchPrompt()" class="btn btn-primary" style="width:100%;margin-top:12px;font-size:11px" id="copyAllBtn">
+        Copy All 5 as One Prompt &rarr;
+      </button>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">Paste this into Claude, ChatGPT, Gemini, and Perplexity. Copy each full response and paste below.</div>`;
+  }
+
+  function copyBatchPrompt() {
+    const prompt = window._batchPrompt || '';
+    if (!prompt) return;
+    navigator.clipboard.writeText(prompt).then(() => {
+      const btn = document.getElementById('copyAllBtn');
+      if (btn) {
+        btn.textContent = '✓ Copied! Now paste into each LLM';
+        btn.style.background = 'var(--success)';
+        setTimeout(() => {
+          btn.textContent = 'Copy All 5 as One Prompt →';
+          btn.style.background = '';
+        }, 2500);
+      }
+    }).catch(() => alert('Copy failed — please select and copy the text manually.'));
   }
 
   function copyQuery(index) {
     const q = (window._suggestedQueries || [])[index];
     if (!q) return;
-    navigator.clipboard.writeText(q).then(() => {
-      // Brief visual feedback
-      const btns = document.querySelectorAll('#suggestedQueries button');
-      if (btns[index]) {
-        btns[index].textContent = 'Copied!';
-        btns[index].style.color = 'var(--success)';
-        setTimeout(() => { btns[index].textContent = 'Copy'; btns[index].style.color = ''; }, 1500);
-      }
-    }).catch(() => {});
+    navigator.clipboard.writeText(q).catch(() => {});
   }
 
   async function analyzeAIVisibility() {
