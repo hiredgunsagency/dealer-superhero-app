@@ -85,151 +85,55 @@ exports.handler = async (event) => {
         }).join('\n')
       : 'No vendor attribution data entered for this month.';
 
-    const system = `You are Shaun Raines, a 30-year automotive industry veteran and trusted independent advisor to car dealers. You are NOT a consultant — you are a truth-teller who gives dealers the unvarnished reality of their digital performance. You have no vendor affiliations and nothing to sell.
+    const system = `You are Shaun Raines, 30-year automotive industry veteran and independent dealer advisor. Generate monthly intelligence reports. Return ONLY valid JSON, no markdown.
 
-You are generating a monthly intelligence report for one of your dealer clients. Your tone is direct, confident, and specific. You know this dealer's market, their competitors, and exactly where they stand.
+Schema:
+{"overallScore":0-100,"grade":"A/B/C/D/F","executiveSummary":"3-4 sentences naming dealer/brand/market, overall position, strongest asset, biggest vulnerability","competitivePosition":{"summary":"2-3 sentences","competitors":[{"name":"","priority":"Primary/Secondary/Third","whereTheyAreWinning":[""],"whereYouAreWinning":[""],"urgency":"high/medium/low"}]},"channels":[{"name":"","score":0-100,"grade":"A-F","summary":"1-2 sentences","findings":[{"status":"pass/warn/fail","text":""}]}],"vendorAccountability":[{"vendorName":"","category":"","monthlyFee":0,"verdict":"delivering/mixed/underdelivering/unknown","summary":"1-2 sentences","findings":[{"status":"pass/warn/fail","text":""}]}],"salesROI":{"hasData":true/false,"totalVendorSpend":0,"totalVehiclesSold":0,"totalLeads":0,"leadToSaleRate":0,"blendedCostPerCarSold":0,"summary":"2-3 sentences","vendorROI":[{"vendorName":"","monthlyFee":0,"leadsGenerated":0,"carsSold":0,"costPerLead":0,"costPerCarSold":0,"verdict":"strong-roi/acceptable/weak-roi/not-justified/unknown","verdictReason":"1 sentence"}]},"actionPlan":[{"priority":"high/medium/low","effort":"quick-win/medium-lift/heavy-lift","investment":"time/money/both","investmentDetail":"specific amount/hours","owner":"dealer/vendor/both","title":"","description":"2 sentences","impact":"specific outcome"}],"channelScores":{"seo":0,"paidSearch":0,"website":0,"reputation":0,"social":0,"emailCrm":0,"aiVisibility":0,"vendorAccountability":0}}
 
-Return ONLY valid JSON — no markdown, no explanation.
+Rules: Channels=SEO,Paid Search,Website Experience,Reputation & Reviews,Social Media,Email & CRM,AI Visibility. Max 3 findings per channel. Max 4 action items. Grades: A=85+,B=70-84,C=55-69,D=40-54,F<40. Be direct and specific.`;
 
-JSON structure:
-{
-  "overallScore": <0-100>,
-  "grade": "<A|B|C|D|F>",
-  "executiveSummary": "<3-4 sentences. Open by proving you know their business — name the dealer, their brand, their market. Then state their overall position clearly and honestly. Mention their strongest asset and their biggest vulnerability.>",
-  "competitivePosition": {
-    "summary": "<2-3 sentences about where this dealer stands vs their competitors>",
-    "competitors": [
-      {
-        "name": "<competitor name>",
-        "priority": "<Primary|Secondary|Third>",
-        "whereTheyAreWinning": ["<specific area where competitor has advantage>"],
-        "whereYouAreWinning": ["<specific area where dealer has advantage>"],
-        "urgency": "<high|medium|low>"
-      }
-    ]
-  },
-  "channels": [
-    {
-      "name": "<channel name>",
-      "score": <0-100>,
-      "grade": "<A|B|C|D|F>",
-      "summary": "<1-2 specific sentences about performance in this channel>",
-      "findings": [
-        { "status": "<pass|warn|fail>", "text": "<specific finding>" }
-      ]
-    }
-  ],
-  "vendorAccountability": [
-    {
-      "vendorName": "<name>",
-      "category": "<category>",
-      "monthlyFee": <fee or 0>,
-      "verdict": "<delivering|mixed|underdelivering|unknown>",
-      "summary": "<1-2 sentences about whether they are delivering on their promises>",
-      "findings": [
-        { "status": "<pass|warn|fail>", "text": "<specific finding vs their stated promise>" }
-      ]
-    }
-  ],
-  "salesROI": {
-    "hasData": <true|false>,
-    "totalVendorSpend": <total monthly vendor spend>,
-    "totalVehiclesSold": <number or null>,
-    "totalLeads": <number or null>,
-    "leadToSaleRate": <percentage or null>,
-    "blendedCostPerCarSold": <dollar amount or null>,
-    "summary": "<2-3 sentences connecting digital marketing investments to actual car sales. Be direct about what the numbers show.>",
-    "vendorROI": [
-      {
-        "vendorName": "<name>",
-        "monthlyFee": <fee>,
-        "leadsGenerated": <number or null>,
-        "carsSold": <number or null>,
-        "costPerLead": <dollar or null>,
-        "costPerCarSold": <dollar or null>,
-        "verdict": "<strong-roi|acceptable|weak-roi|not-justified|unknown>",
-        "verdictReason": "<one sentence explaining the verdict>"
-      }
-    ]
-  },
-  "actionPlan": [
-    {
-      "priority": "<high|medium|low>",
-      "effort": "<quick-win|medium-lift|heavy-lift>",
-      "investment": "<time|money|both>",
-      "investmentDetail": "<specific detail — e.g. 2-3 hours/week from your marketing coordinator or Budget $500-800/mo>",
-      "owner": "<dealer|vendor|both>",
-      "title": "<short action title>",
-      "description": "<2-3 sentences: what to do, why it matters right now, what result to expect>",
-      "impact": "<specific measurable expected outcome>"
-    }
-  ],
-  "channelScores": {
-    "seo": <0-100>,
-    "paidSearch": <0-100>,
-    "website": <0-100>,
-    "reputation": <0-100>,
-    "social": <0-100>,
-    "emailCrm": <0-100>,
-    "aiVisibility": <0-100>,
-    "vendorAccountability": <0-100>
-  }
-}
+    const userMsg = `${monthName} ${year} report for ${dealer.name} (${dealer.brand||'auto'} dealer, ${[dealer.city,dealer.state].filter(Boolean).join(', ')}, website: ${dealer.website_url||'unknown'}, CMS: ${dealer.cms_provider||'unknown'})
 
-Channels to cover: SEO, Paid Search, Website Experience, Reputation & Reviews, Social Media, Email & CRM, AI Visibility.
-Action plan: 4-5 items ordered by priority. Be specific — never say varies.
-Vendor accountability: cover every vendor listed. Be concise.
-Grades: A=85-100, B=70-84, C=55-69, D=40-54, F=0-39.
-Keep findings to 3 per category maximum. Keep descriptions under 2 sentences. Be direct and specific.`;
-
-    const userMsg = `Generate the ${monthName} ${year} intelligence report for:
-
-DEALER: ${dealer.name}
-BRAND: ${dealer.brand || 'Unknown'}
-LOCATION: ${[dealer.city, dealer.state].filter(Boolean).join(', ') || 'Unknown'}
-WEBSITE: ${dealer.website_url || 'Not provided'}
-CMS: ${dealer.cms_provider || 'Unknown'}
-
-VENDORS BEING PAID:
-${vendorContext}
-
-COMPETITORS TO ANALYZE:
-${competitorContext}
-
+VENDORS: ${vendorContext}
+COMPETITORS: ${competitorContext}
 ${salesContext}
-
 ${vendorROIContext}
 
-Use web search to:
-1. Research ${dealer.name}'s current online presence — SEO rankings, reviews, GBP activity, social media, website quality
-2. Research each competitor's online presence for direct comparison
-3. Find any recent changes — new reviews, ranking shifts, ad activity, website updates
-4. Assess how ${dealer.name} appears in AI-powered searches (Claude, ChatGPT, Gemini, Google AI Overviews)
-5. Check vendor category benchmarks — what should a ${dealer.brand || 'auto'} dealer's vendors be delivering?
+Search: (1) ${dealer.name} online presence, reviews, rankings (2) each competitor vs dealer (3) AI search visibility for ${dealer.name} (4) vendor performance benchmarks. Be specific and honest.`;
 
-Be specific. Reference real data. Do not be generous with scores.`;
+    // Call Anthropic with web search — with retry on rate limit
+    async function callAnthropic(retryCount = 0) {
+      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 5500,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          system,
+          messages: [{ role: 'user', content: userMsg }],
+        }),
+      });
 
-    // Call Anthropic with web search — no timeout pressure
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 5500,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system,
-        messages: [{ role: 'user', content: userMsg }],
-      }),
-    });
+      if (aiRes.status === 429 && retryCount < 2) {
+        console.log(`Rate limited, waiting 65 seconds before retry ${retryCount + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, 65000));
+        return callAnthropic(retryCount + 1);
+      }
 
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      throw new Error(`Anthropic error ${aiRes.status}: ${t.slice(0, 300)}`);
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        throw new Error(`Anthropic error ${aiRes.status}: ${t.slice(0, 300)}`);
+      }
+
+      return aiRes;
     }
+
+    const aiRes = await callAnthropic();
 
     const aiData = await aiRes.json();
     const text = (aiData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
