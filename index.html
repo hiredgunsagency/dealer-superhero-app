@@ -1525,8 +1525,33 @@
   }
 
   async function loadSavedReport(reportId) {
-    // For now just show a coming soon message
-    alert('Saved report viewer coming in the next build. For now, regenerate the report to view it.');
+    const output = document.getElementById('reportOutput');
+    if (!output) {
+      // We're not on the reports page — navigate there first
+      await showPage('reports');
+      setTimeout(() => loadSavedReport(reportId), 600);
+      return;
+    }
+
+    output.innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <div style="width:40px;height:40px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:0 auto 16px"></div>
+      <div style="font-size:14px;color:var(--white2)">Loading report...</div>
+    </div>`;
+
+    try {
+      const rows = await sbGet('monthly_reports', `?id=eq.${reportId}&select=report_data,report_month,report_year,overall_score,dealers(name)`);
+      const row = rows[0];
+
+      if (!row) throw new Error('Report not found.');
+      if (!row.report_data) throw new Error('Report data not available. Please regenerate this report.');
+
+      const report = row.report_data;
+      renderReportOutput(report);
+      window.scrollTo({ top: document.getElementById('reportOutput').offsetTop - 20, behavior: 'smooth' });
+
+    } catch(e) {
+      output.innerHTML = `<div class="alert alert-error" style="display:block">${e.message}</div>`;
+    }
   }
 
   // ── VENDORS PAGE ──
