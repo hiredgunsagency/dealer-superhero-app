@@ -414,41 +414,66 @@
 </div>
 
 <script>
-  // ── SUPABASE HELPERS (via server proxy — no credentials in frontend) ──
-  async function sbFetch(body) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    try {
-      const res = await fetch('/.netlify/functions/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    } catch(e) {
-      clearTimeout(timeout);
-      if (e.name === 'AbortError') throw new Error('Request timed out — please try again.');
-      throw e;
-    }
+  // ── CONFIG & SUPABASE DIRECT ──
+  let SB_URL = null;
+  let SB_KEY = null;
+
+  async function initConfig() {
+    const res = await fetch('/.netlify/functions/config');
+    if (!res.ok) throw new Error('Failed to load config');
+    const cfg = await res.json();
+    SB_URL = cfg.url;
+    SB_KEY = cfg.key;
   }
 
   async function sbGet(table, query='') {
-    return sbFetch({ method: 'GET', table, query });
+    const res = await fetch(`${SB_URL}/rest/v1/${table}${query}`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
   async function sbPost(table, data) {
-    return sbFetch({ method: 'POST', table, data });
+    const res = await fetch(`${SB_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
   async function sbPatch(table, id, data) {
-    return sbFetch({ method: 'PATCH', table, id, data });
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
   async function sbDelete(table, id) {
-    return sbFetch({ method: 'DELETE', table, id });
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  // Keep sbFetch for backwards compat with multi-query calls
+  async function sbFetch(body) {
+    if (body.queries) {
+      return Promise.all(body.queries.map(q => sbGet(q.table, q.query || '')));
+    }
+    return sbGet(body.table, body.query || '');
   }
 
   // ── STATE ──
@@ -482,12 +507,11 @@
   // ── DASHBOARD ──
   async function renderDashboard() {
     try {
-      const results = await sbFetch({ queries: [
-        { table: 'dealers', query: '?select=*&order=created_at.desc' },
-        { table: 'monthly_reports', query: '?select=*&order=created_at.desc&limit=5' },
-        { table: 'vendors', query: '?select=*' },
-      ]});
-      const [dealers, reports, vendors] = results;
+      const [dealers, reports, vendors] = await Promise.all([
+        sbGet('dealers', '?select=*&order=created_at.desc'),
+        sbGet('monthly_reports', '?select=*&order=created_at.desc&limit=5'),
+        sbGet('vendors', '?select=*'),
+      ]);
       const activeCount = dealers.filter(d => d.status === 'active').length;
       const totalRetainer = dealers.reduce((sum, d) => sum + (parseFloat(d.monthly_retainer) || 0), 0);
 
@@ -594,15 +618,11 @@
     // Store dealer data for edit button
     window._currentDealer = d;
     try {
-    const results = await sbFetch({ queries: [
-      { table: 'dealers', query: `?id=eq.${id}` },
-      { table: 'vendors', query: `?dealer_id=eq.${id}&order=vendor_name.asc` },
-      { table: 'competitors', query: `?dealer_id=eq.${id}&order=display_order.asc` },
-    ]});
-    const [dealerRes, vendorsRes, competitorsRes] = results;
-    const dealers = dealerRes;
-    const vendors = vendorsRes;
-    const competitors = competitorsRes;
+    const [dealers, vendors, competitors] = await Promise.all([
+      sbGet('dealers', `?id=eq.${id}`),
+      sbGet('vendors', `?dealer_id=eq.${id}&order=vendor_name.asc`),
+      sbGet('competitors', `?dealer_id=eq.${id}&order=display_order.asc`),
+    ]);
       const d = dealers[0];
       if (!d) { document.getElementById('pageContent').innerHTML = '<div class="empty"><div class="empty-title">Dealer not found</div></div>'; return; }
 
@@ -1690,8 +1710,21 @@
   });
 
   // ── INIT ──
-  showPage('dashboard');
-  lucide.createIcons();
+  async function init() {
+    try {
+      await initConfig();
+      showPage('dashboard');
+      lucide.createIcons();
+    } catch(e) {
+      document.getElementById('pageContent').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">Configuration Error</div>
+          <div class="empty-sub">${e.message}<br><br>Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in Netlify environment variables.</div>
+        </div>`;
+    }
+  }
+  init();
 </script>
 </body>
 </html>
