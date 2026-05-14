@@ -1754,13 +1754,29 @@
       `Is ${name} a good dealership?`,
     ];
 
+    window._suggestedQueries = queries;
+
     el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Run each of these in Claude, ChatGPT, Gemini, and Perplexity:</div>` +
       queries.map((q, i) => `
         <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
           <span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;width:16px">${i+1}</span>
           <span style="color:var(--white2);flex:1">${q}</span>
-          <button onclick="navigator.clipboard.writeText(${JSON.stringify(q)}).catch(()=>{})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px">Copy</button>
+          <button onclick="copyQuery(${i})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px">Copy</button>
         </div>`).join('');
+  }
+
+  function copyQuery(index) {
+    const q = (window._suggestedQueries || [])[index];
+    if (!q) return;
+    navigator.clipboard.writeText(q).then(() => {
+      // Brief visual feedback
+      const btns = document.querySelectorAll('#suggestedQueries button');
+      if (btns[index]) {
+        btns[index].textContent = 'Copied!';
+        btns[index].style.color = 'var(--success)';
+        setTimeout(() => { btns[index].textContent = 'Copy'; btns[index].style.color = ''; }, 1500);
+      }
+    }).catch(() => {});
   }
 
   async function analyzeAIVisibility() {
