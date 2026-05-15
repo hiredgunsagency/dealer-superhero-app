@@ -194,7 +194,7 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <img src="logo.png" alt="Dealer Superhero" style="width:180px;height:auto;display:block;"/>
+      <img id="sidebarLogo" src="logo.png" alt="Dealer Superhero" style="width:180px;height:auto;display:block;"/>
     </div>
     <div class="logo-sub" style="margin-top:8px;font-size:11px;">Intelligence Platform</div>
   </div>
@@ -2265,6 +2265,14 @@ ${llmData.perplexity || 'No data provided'}`;
     const isLight = document.body.classList.toggle('light');
     localStorage.setItem('ds_theme', isLight ? 'light' : 'dark');
     updateThemeBtn();
+    updateLogo();
+  }
+
+  function updateLogo() {
+    const logo = document.getElementById('sidebarLogo');
+    if (!logo) return;
+    const isLight = document.body.classList.contains('light');
+    logo.src = isLight ? 'logo-light.png' : 'logo.png';
   }
 
   function updateThemeBtn() {
@@ -2288,6 +2296,7 @@ ${llmData.perplexity || 'No data provided'}`;
       document.body.classList.add('light');
     }
     updateThemeBtn();
+    updateLogo();
     try {
       await initConfig();
       showPage('dashboard');
