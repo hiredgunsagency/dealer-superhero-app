@@ -74,7 +74,7 @@
 
     try {
       // Get config
-      const cfgRes = await fetch('/netlify/functions/config');
+      const cfgRes = await fetch('/.netlify/functions/config');
       if (!cfgRes.ok) throw new Error('Config unavailable');
       const cfg = await cfgRes.json();
 
