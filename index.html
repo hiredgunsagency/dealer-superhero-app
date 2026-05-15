@@ -32,8 +32,15 @@
       --warning:#D97706;--warning-bg:rgba(217,119,6,0.1);
       --danger:#DC2626;--danger-bg:rgba(220,38,38,0.1);
     }
+    body.light .sidebar{background:#0D1B3E;border-right-color:#1A2F5A;}
+    body.light .sidebar-logo{border-bottom-color:#1A2F5A;}
+    body.light .sidebar-footer{border-top-color:#1A2F5A;color:#7B96C8;}
+    body.light .nav-section{color:#4A6599;}
+    body.light .nav-item{color:#A8BFDF;}
+    body.light .nav-item:hover{color:#FFFFFF;background:rgba(255,255,255,0.08);}
+    body.light .nav-item.active{color:#5ECFFF;background:rgba(1,176,241,0.15);border-left-color:#01B0F1;}
+    body.light .logo-sub{color:#4A6599;}
     body.light .nav-item:hover{background:rgba(0,0,0,0.04);}
-    body.light .nav-item.active{background:rgba(0,150,204,0.08);}
     body.light tr:hover td{background:rgba(0,0,0,0.02);}
     body.light .modal-overlay{background:rgba(0,0,0,0.4);}
     body.light .btn-ghost{border-color:var(--border2);color:var(--white2);}
@@ -2271,8 +2278,7 @@ ${llmData.perplexity || 'No data provided'}`;
   function updateLogo() {
     const logo = document.getElementById('sidebarLogo');
     if (!logo) return;
-    const isLight = document.body.classList.contains('light');
-    logo.src = isLight ? 'logo-light.png' : 'logo.png';
+    logo.src = 'logo.png';
   }
 
   function updateThemeBtn() {
