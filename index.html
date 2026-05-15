@@ -1292,7 +1292,7 @@
           const res = await fetch(`/.netlify/functions/report-status?job_id=${jobId}`);
           const data = await res.json();
 
-          if (data.status === 'complete' && data.report) {
+      if (data.status === 'complete' && data.report) {
             clearInterval(poll);
             clearInterval(spinnerInterval);
             clearInterval(elapsedInterval);
@@ -1301,8 +1301,11 @@
               const el = document.getElementById(id);
               if (el) el.className = 'step done';
             });
+            // Get the report ID from the job record
+            const jobRows = await sbGet('monthly_reports', `?job_id=eq.${jobId}&select=id`).catch(() => []);
+            const savedReportId = jobRows[0]?.id || null;
             setTimeout(() => {
-              renderReportOutput(data.report);
+              renderReportOutput({ ...data.report, reportId: savedReportId });
               btn.disabled = false;
               btn.textContent = 'Generate Intelligence Report';
             }, 500);
@@ -1458,7 +1461,9 @@
           ${r.dealer?.name} &nbsp;·&nbsp; ${monthName} ${r.year} Intelligence Report
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyReportEmail(${JSON.stringify({reportId:r.reportId,dealer:r.dealer,grade:r.grade,score:r.overallScore,summary:r.executiveSummary,monthName,year:r.year,actions:(r.actionPlan||[]).slice(0,3)}).replace(/"/g,'&quot;')})">&#9993; Copy Email</button>
+          <button class="btn btn-primary btn-sm" onclick="openReportLink('${r.reportId}')">&#128279; Share Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.print()">Print / PDF</button>
         </div>
       </div>
 
@@ -1556,6 +1561,51 @@
     window.scrollTo({ top: document.getElementById('reportOutput').offsetTop - 20, behavior: 'smooth' });
   }
 
+  function openReportLink(reportId) {
+    if (!reportId) { alert('Save the report first to get a shareable link.'); return; }
+    const url = window.location.origin + '/report.html?id=' + reportId;
+    window.open(url, '_blank');
+  }
+
+  function copyReportEmail(data) {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const reportUrl = data.reportId ? window.location.origin + '/report.html?id=' + data.reportId : '';
+    const dealer = data.dealer || {};
+    const actions = (data.actions || []).map((a,i) => `${i+1}. ${a.title} — ${a.description}`).join('\n');
+
+    const email = `Subject: Your ${data.monthName} ${data.year} Digital Intelligence Report — ${dealer.name}
+
+Hi [Name],
+
+Your monthly Dealer Superhero Intelligence Report for ${data.monthName} ${data.year} is ready.
+
+OVERALL GRADE: ${data.grade} (${data.score}/100)
+
+${data.summary}
+
+TOP PRIORITIES THIS MONTH:
+${actions}
+
+Your full report — including channel scores, vendor accountability, competitive analysis, and complete action plan — is available here:
+
+${reportUrl}
+
+I look forward to walking you through this on our call.
+
+Shaun Raines
+Dealer Superhero
+dealer-superhero.com`;
+
+    navigator.clipboard.writeText(email).then(() => {
+      // Show confirmation toast
+      const toast = document.createElement('div');
+      toast.textContent = '✓ Email copied to clipboard — paste into Gmail or Outlook';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22C55E;color:#fff;font-family:var(--font-h);font-size:11px;font-weight:700;padding:12px 24px;border-radius:100px;z-index:9999;letter-spacing:0.06em';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }).catch(() => alert('Copy failed — please copy the email manually.'));
+  }
+
   function scoreColor(s) {
     if (s >= 85) return '#22C55E';
     if (s >= 70) return '#7BC67E';
@@ -1598,7 +1648,7 @@
       if (!row.report_data) throw new Error('Report data not available. Please regenerate this report.');
 
       const report = row.report_data;
-      renderReportOutput(report);
+      renderReportOutput({ ...report, reportId });
       window.scrollTo({ top: document.getElementById('reportOutput').offsetTop - 20, behavior: 'smooth' });
 
     } catch(e) {

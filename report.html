@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dealer Superhero Intelligence Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700;800;900&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0A0A0F;--bg2:#111118;--card:#16161F;--card2:#1C1C28;
+      --border:#252535;--border2:#333348;
+      --blue:#01B0F1;--blue-light:#5ECFFF;
+      --red:#FE0000;
+      --white:#F0F0F8;--white2:#B8B8CC;--muted:#6868A0;
+      --success:#22C55E;--success-bg:rgba(34,197,94,0.12);
+      --warning:#F59E0B;--warning-bg:rgba(245,158,11,0.12);
+      --danger:#EF4444;--danger-bg:rgba(239,68,68,0.12);
+      --font-h:'Unbounded',sans-serif;--font-b:'Space Grotesk',sans-serif;
+      --r:12px;--rs:8px;
+    }
+    body{background:var(--bg);color:var(--white);font-family:var(--font-b);min-height:100vh;line-height:1.6;}
+    .header{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:12px;}
+    .logo-text{font-family:var(--font-h);font-size:12px;font-weight:700;letter-spacing:0.12em;}
+    .logo-text span{color:var(--blue);}
+    .header-right{margin-left:auto;font-size:12px;color:var(--muted);}
+    .container{max-width:900px;margin:0 auto;padding:36px 24px 80px;}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px;}
+    .card2{background:var(--card2);border-radius:var(--rs);padding:14px 16px;}
+    .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;font-family:var(--font-h);letter-spacing:0.06em;padding:3px 10px;border-radius:100px;text-transform:uppercase;}
+    .b-pass{background:var(--success-bg);color:var(--success);}
+    .b-warn{background:var(--warning-bg);color:var(--warning);}
+    .b-fail{background:var(--danger-bg);color:var(--danger);}
+    .finding{display:flex;gap:10px;margin-bottom:8px;font-size:14px;color:var(--white2);align-items:flex-start;line-height:1.6;}
+    .section-label{font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px;}
+    .spinner{width:44px;height:44px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.85s linear infinite;margin:60px auto;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .cats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-bottom:16px;}
+    .rec-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start;}
+    .rec-row:last-child{border-bottom:none;}
+    .rec-pri{font-family:var(--font-h);font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;flex-shrink:0;text-transform:uppercase;margin-top:2px;}
+    .pri-high{background:var(--danger-bg);color:var(--danger);}
+    .pri-medium{background:var(--warning-bg);color:var(--warning);}
+    .pri-low{background:var(--success-bg);color:var(--success);}
+    .footer{text-align:center;font-size:12px;color:var(--muted);padding:20px 0;line-height:1.8;}
+    @media(max-width:600px){.cats-grid{grid-template-columns:1fr;}.container{padding:20px 16px 60px;}}
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <img src="/logo.png" alt="Dealer Superhero" style="height:28px;width:auto;display:block;"/>
+  <span class="header-right" id="reportLabel">Intelligence Report</span>
+</header>
+
+<div class="container" id="content">
+  <div class="spinner"></div>
+</div>
+
+<script>
+  function scoreColor(s){
+    if(s>=85)return'#22C55E';if(s>=70)return'#7BC67E';
+    if(s>=55)return'#F59E0B';if(s>=40)return'#F97316';return'#EF4444';
+  }
+
+  async function loadReport() {
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get('id') || window.location.pathname.split('/').pop();
+
+    if (!reportId || reportId === 'report.html') {
+      document.getElementById('content').innerHTML = `<div style="text-align:center;padding:80px 20px"><div style="font-family:var(--font-h);font-size:16px;margin-bottom:12px">No Report ID</div><div style="color:var(--muted)">This link is missing a report ID.</div></div>`;
+      return;
+    }
+
+    try {
+      // Get config
+      const cfgRes = await fetch('/netlify/functions/config');
+      if (!cfgRes.ok) throw new Error('Config unavailable');
+      const cfg = await cfgRes.json();
+
+      // Fetch report
+      const res = await fetch(`${cfg.url}/rest/v1/monthly_reports?id=eq.${reportId}&select=report_data,report_month,report_year,overall_score,dealers(name,brand,city,state)`, {
+        headers: { 'apikey': cfg.key, 'Authorization': `Bearer ${cfg.key}` }
+      });
+      if (!res.ok) throw new Error('Failed to load report');
+      const rows = await res.json();
+      const row = rows[0];
+
+      if (!row || !row.report_data) {
+        document.getElementById('content').innerHTML = `<div style="text-align:center;padding:80px 20px"><div style="font-family:var(--font-h);font-size:16px;margin-bottom:12px">Report Not Found</div><div style="color:var(--muted)">This report may have been deleted or the link is invalid.</div></div>`;
+        return;
+      }
+
+      const r = row.report_data;
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const monthName = r.monthName || months[(r.month||1)-1];
+      document.getElementById('reportLabel').textContent = `${r.dealer?.name || ''} · ${monthName} ${r.year}`;
+      document.title = `${r.dealer?.name} SEO Report · ${monthName} ${r.year} · Dealer Superhero`;
+
+      renderReport(r, monthName);
+    } catch(e) {
+      document.getElementById('content').innerHTML = `<div style="text-align:center;padding:80px 20px;color:var(--danger)">${e.message}</div>`;
+    }
+  }
+
+  function renderReport(r, monthName) {
+    const sc = scoreColor(r.overallScore);
+    const gradeColors = {'A':'#22C55E','B':'#7BC67E','C':'#F59E0B','D':'#F97316','F':'#EF4444'};
+    const gc = gradeColors[r.grade] || '#6868A0';
+
+    const channelScores = r.channelScores || {};
+    const channelNames = {seo:'SEO',paidSearch:'Paid Search',website:'Website',reputation:'Reputation',social:'Social',emailCrm:'Email/CRM',aiVisibility:'AI Visibility',vendorAccountability:'Vendor Accountability'};
+    const channelBars = Object.entries(channelNames).map(([key,name]) => {
+      const score = channelScores[key] || 0;
+      const c = scoreColor(score);
+      return `<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;color:var(--white2)">${name}</span><span style="font-family:var(--font-h);font-size:12px;font-weight:700;color:${c}">${score}</span></div><div style="height:5px;background:var(--border);border-radius:3px"><div style="height:5px;border-radius:3px;width:${score}%;background:${c}"></div></div></div>`;
+    }).join('');
+
+    const compHtml = (r.competitivePosition?.competitors||[]).map(c => {
+      const uc = c.urgency==='high'?'var(--danger)':c.urgency==='medium'?'var(--warning)':'var(--success)';
+      return `<div class="card2" style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-family:var(--font-h);font-size:13px;font-weight:700">${c.name}</div><span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${uc};border:1px solid ${uc};padding:2px 8px;border-radius:100px">${c.urgency} urgency</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><div style="font-size:10px;font-weight:700;color:var(--danger);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">They're winning</div>${(c.whereTheyAreWinning||[]).map(w=>`<div style="font-size:13px;color:var(--white2);padding:4px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}</div><div><div style="font-size:10px;font-weight:700;color:var(--success);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">You're winning</div>${(c.whereYouAreWinning||[]).map(w=>`<div style="font-size:13px;color:var(--white2);padding:4px 0;border-bottom:1px solid var(--border)">${w}</div>`).join('')}</div></div></div>`;
+    }).join('');
+
+    const channelsHtml = (r.channels||[]).map(ch => {
+      const cc = scoreColor(ch.score);
+      const fh = (ch.findings||[]).map(f => {
+        const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
+        const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
+        return `<div class="finding"><span class="badge ${bc}" style="flex-shrink:0;margin-top:2px">${lb}</span><span>${f.text}</span></div>`;
+      }).join('');
+      return `<div class="card" style="padding:18px 20px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-family:var(--font-h);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;flex:1">${ch.name}</span><span style="font-family:var(--font-h);font-size:14px;font-weight:800;color:${cc}">${ch.score}/100</span></div><div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:12px"><div style="height:4px;border-radius:2px;width:${ch.score}%;background:${cc}"></div></div>${ch.summary?`<div style="font-size:14px;color:var(--white2);margin-bottom:10px;line-height:1.7">${ch.summary}</div>`:''} ${fh}</div>`;
+    }).join('');
+
+    const vendorHtml = (r.vendorAccountability||[]).map(v => {
+      const vc = {'delivering':'var(--success)','mixed':'var(--warning)','underdelivering':'var(--danger)','unknown':'var(--muted)'}[v.verdict]||'var(--muted)';
+      const fh = (v.findings||[]).map(f => {
+        const bc = f.status==='pass'?'b-pass':f.status==='warn'?'b-warn':'b-fail';
+        const lb = f.status==='pass'?'PASS':f.status==='warn'?'WARN':'FAIL';
+        return `<div class="finding"><span class="badge ${bc}" style="flex-shrink:0;margin-top:2px">${lb}</span><span>${f.text}</span></div>`;
+      }).join('');
+      return `<div class="card2" style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div><div style="font-family:var(--font-h);font-size:13px;font-weight:700">${v.vendorName}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${v.category} · $${(v.monthlyFee||0).toLocaleString()}/mo</div></div><span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:3px 10px;border-radius:100px;text-transform:uppercase">${v.verdict}</span></div>${v.summary?`<div style="font-size:14px;color:var(--white2);margin-bottom:10px;line-height:1.7">${v.summary}</div>`:''} ${fh}</div>`;
+    }).join('');
+
+    const effortIcons = {'quick-win':'⚡','medium-lift':'🔧','heavy-lift':'🏗️'};
+    const investIcons = {'time':'⏱️','money':'💰','both':'⏱️💰'};
+    const actionHtml = (r.actionPlan||[]).map((a,i) => {
+      const pc = a.priority==='high'?'pri-high':a.priority==='medium'?'pri-medium':'pri-low';
+      const oc = a.owner==='dealer'?'var(--blue-light)':a.owner==='vendor'?'var(--warning)':'var(--white2)';
+      return `<div class="rec-row"><div style="font-family:var(--font-h);font-size:18px;font-weight:900;color:var(--muted);flex-shrink:0;line-height:1;margin-top:2px">${String(i+1).padStart(2,'0')}</div><div style="flex:1"><div style="font-family:var(--font-h);font-size:14px;font-weight:700;margin-bottom:8px">${a.title}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"><span class="rec-pri ${pc}">${a.priority}</span><span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${effortIcons[a.effort]||''} ${(a.effort||'').replace('-',' ')}</span><span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--white2)">${investIcons[a.investment]||''} ${a.investment||''}</span><span style="font-family:var(--font-h);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(255,255,255,0.06);color:${oc}">Owner: ${a.owner||''}</span></div><div style="font-size:14px;color:var(--white2);line-height:1.7;margin-bottom:8px">${a.description}</div>${a.investmentDetail?`<div style="font-size:13px;color:var(--blue-light);margin-bottom:6px">Investment: ${a.investmentDetail}</div>`:''} ${a.impact?`<div style="font-size:13px;color:var(--success)">Expected: ${a.impact}</div>`:''}</div></div>`;
+    }).join('');
+
+    const today = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+    document.getElementById('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Intelligence Report</div>
+          <div style="font-family:var(--font-h);font-size:18px;font-weight:800">${r.dealer?.name}</div>
+          <div style="font-size:14px;color:var(--muted);margin-top:3px">${r.dealer?.brand||''} · ${[r.dealer?.city,r.dealer?.state].filter(Boolean).join(', ')} · ${monthName} ${r.year}</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+          <div style="width:90px;height:90px;border-radius:50%;border:3px solid ${gc};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-family:var(--font-h);font-size:38px;font-weight:900;color:${gc};line-height:1">${r.grade}</div>
+            <div style="font-size:9px;color:${gc};opacity:0.7;letter-spacing:0.04em">GRADE</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Overall Score: <strong style="color:var(--white)">${r.overallScore}/100</strong></div>
+            <div style="font-size:15px;color:var(--white2);line-height:1.8">${r.executiveSummary||''}</div>
+          </div>
+          <div style="min-width:220px">${channelBars}</div>
+        </div>
+      </div>
+
+      ${r.competitivePosition?`<div class="card" style="margin-bottom:16px"><div class="section-label" style="color:var(--red)">Competitive Position</div><div style="font-size:15px;color:var(--white2);line-height:1.8;margin-bottom:14px">${r.competitivePosition.summary||''}</div>${compHtml}</div>`:''}
+
+      <div class="card" style="margin-bottom:16px"><div class="section-label" style="color:var(--blue-light)">Channel Analysis</div><div class="cats-grid">${channelsHtml}</div></div>
+
+      ${vendorHtml?`<div class="card" style="margin-bottom:16px"><div class="section-label" style="color:var(--warning)">Vendor Accountability</div>${vendorHtml}</div>`:''}
+
+      <div class="card" style="margin-bottom:16px"><div class="section-label" style="color:var(--success)">Action Plan</div><div style="font-size:13px;color:var(--muted);margin-bottom:16px">Ordered by priority — effort, investment type, and owner shown for each item.</div>${actionHtml}</div>
+
+      <div class="footer">
+        Dealer Superhero Intelligence Report · ${monthName} ${r.year}<br>
+        Prepared by Shaun Raines · dealer-superhero.com<br>
+        Confidential — prepared exclusively for ${r.dealer?.name}
+      </div>`;
+  }
+
+  loadReport();
+</script>
+</body>
+</html>
