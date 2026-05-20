@@ -670,6 +670,7 @@
           <div class="tab" onclick="switchTab('vendors-tab','${id}')">Vendors (${vendors.length})</div>
           <div class="tab" onclick="switchTab('competitors-tab','${id}')">Competitors (${competitors.length})</div>
           <div class="tab" onclick="switchTab('sales-tab','${id}')">Sales Data</div>
+          <div class="tab" onclick="switchTab('vendor-reports-tab','${id}')">Vendor Reports</div>
           <div class="tab" onclick="switchTab('reports-tab','${id}')">Reports</div>
         </div>
 
@@ -813,6 +814,59 @@
           </div>
         </div>
 
+        <div id="tab-vendor-reports-tab" style="display:none">
+          <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start">
+            <div class="card">
+              <div class="section-header" style="margin-bottom:20px">
+                <div><div class="section-title">Upload Vendor Report</div><div class="section-sub">PDF or Excel reports from any vendor</div></div>
+              </div>
+              <div class="field" style="margin-bottom:14px">
+                <label>Vendor</label>
+                <select id="vr_vendor">
+                  <option value="">Select vendor (optional)</option>
+                  ${vendors.map(v => `<option value="${v.id}" data-name="${v.vendor_name}" data-category="${v.category||''}" data-promises="${(v.promised_deliverables||'') + ' ' + (v.additional_promises||'')}">${v.vendor_name}</option>`).join('')}
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+                <div class="field">
+                  <label>Month</label>
+                  <select id="vr_month">
+                    ${['January','February','March','April','May','June','July','August','September','October','November','December'].map((m,i) => `<option value="${i+1}" ${i+1===new Date().getMonth()+1?'selected':''}>${m}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Year</label>
+                  <select id="vr_year">
+                    <option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>
+                    <option value="${new Date().getFullYear()-1}">${new Date().getFullYear()-1}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:16px">
+                <label>Report File</label>
+                <input type="file" id="vr_file" accept=".pdf,.xlsx,.xls,.csv" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--rs);color:var(--white);font-family:var(--font-b);font-size:14px;padding:10px 13px;width:100%"/>
+                <div class="field-hint">Accepts PDF, Excel (.xlsx, .xls), or CSV</div>
+              </div>
+              <div class="alert" id="vrAlert" style="margin-bottom:12px"></div>
+              <button class="btn btn-primary" style="width:100%" id="vrUploadBtn" onclick="uploadVendorReport('${id}')">
+                Upload &amp; Extract with AI
+              </button>
+              <div style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center;line-height:1.6">
+                AI will extract claimed metrics and compare against vendor promises
+              </div>
+            </div>
+            <div class="card" id="vrResultCard" style="display:none"></div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="section-header" style="margin-bottom:16px">
+              <div><div class="section-title">Uploaded Reports</div></div>
+            </div>
+            <div id="vrHistory">
+              <div style="font-size:13px;color:var(--muted)">Loading...</div>
+            </div>
+          </div>
+        </div>
+
         <div id="tab-reports-tab" style="display:none">
           <div class="empty"><div class="empty-icon">&#128202;</div><div class="empty-title">Go to Monthly Reports</div><div class="empty-sub">Use the Monthly Reports page in the left nav to generate and view reports for this dealer.</div><button class="btn btn-primary" onclick="showPage('reports')">Go to Reports</button></div>
         </div>`;
@@ -912,6 +966,171 @@
       alert.textContent = 'Error: ' + e.message;
       alert.className = 'alert alert-error';
       alert.style.display = 'block';
+    }
+  }
+
+  async function uploadVendorReport(dealerId) {
+    const fileInput = document.getElementById('vr_file');
+    const vendorSelect = document.getElementById('vr_vendor');
+    const month = document.getElementById('vr_month').value;
+    const year = document.getElementById('vr_year').value;
+    const alert = document.getElementById('vrAlert');
+    alert.style.display = 'none';
+
+    if (!fileInput.files[0]) {
+      alert.textContent = 'Please select a file to upload.';
+      alert.className = 'alert alert-error';
+      alert.style.display = 'block';
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const vendorOpt = vendorSelect.options[vendorSelect.selectedIndex];
+    const vendorId = vendorSelect.value || null;
+    const vendorName = vendorOpt?.dataset?.name || 'Unknown Vendor';
+    const vendorCategory = vendorOpt?.dataset?.category || '';
+    const vendorPromises = vendorOpt?.dataset?.promises?.trim() || '';
+
+    const btn = document.getElementById('vrUploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    const resultCard = document.getElementById('vrResultCard');
+    resultCard.style.display = 'block';
+    resultCard.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner" style="margin:0 auto 16px"></div><div style="font-size:14px;color:var(--white2)" id="vrStatus">Uploading file...</div></div>`;
+
+    try {
+      // Step 1 — Upload file directly to Supabase Storage
+      const filePath = `${dealerId}/${vendorId||'general'}/${year}-${String(month).padStart(2,'0')}-${Date.now()}-${file.name}`;
+      document.getElementById('vrStatus').textContent = 'Uploading to secure storage...';
+
+      const uploadRes = await fetch(`${SB_URL}/storage/v1/object/vendor-reports/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SB_KEY}`,
+          'Content-Type': file.type || 'application/octet-stream',
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const t = await uploadRes.text();
+        throw new Error('Upload failed: ' + t.slice(0, 200));
+      }
+
+      // Step 2 — Extract and analyze
+      document.getElementById('vrStatus').textContent = 'Extracting content with AI...';
+
+      const extractRes = await fetch('/.netlify/functions/vendor-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'extract',
+          filePath,
+          fileName: file.name,
+          dealerId,
+          vendorId,
+          vendorName,
+          vendorCategory,
+          vendorPromises,
+          month: parseInt(month),
+          year: parseInt(year),
+        }),
+      });
+
+      if (!extractRes.ok) throw new Error('Extraction failed: ' + (await extractRes.text()).slice(0, 200));
+      const result = await extractRes.json();
+      if (result.error) throw new Error(result.error);
+
+      const claims = result.claims || {};
+      const verdictColors = { delivering: 'var(--success)', mixed: 'var(--warning)', unclear: 'var(--muted)', underdelivering: 'var(--danger)' };
+      const vc = verdictColors[claims.verdict] || 'var(--muted)';
+
+      resultCard.innerHTML = `
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:14px">AI Extraction Complete — ${file.name}</div>
+        <div style="font-size:15px;color:var(--white2);line-height:1.75;margin-bottom:16px">${claims.reportSummary || 'No summary available.'}</div>
+        ${claims.verdict ? `<div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px"><span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:${vc};border:1px solid ${vc};padding:3px 12px;border-radius:100px;text-transform:uppercase">${claims.verdict}</span><span style="font-size:13px;color:var(--muted)">${claims.verdictReason||''}</span></div>` : ''}
+        ${claims.claimedMetrics?.length ? `
+          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Claimed Metrics</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:16px">
+            ${claims.claimedMetrics.slice(0,8).map(m => `<div style="background:var(--card2);border-radius:var(--rs);padding:10px 12px"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">${m.metric}</div><div style="font-family:var(--font-h);font-size:14px;font-weight:700;color:var(--white)">${m.value}</div>${m.context?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${m.context}</div>`:''}</div>`).join('')}
+          </div>` : ''}
+        ${claims.promiseComparison && claims.promiseComparison !== 'no promises on file' ? `
+          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--warning);margin-bottom:8px">vs. Vendor Promises</div>
+          <div style="font-size:13px;color:var(--white2);padding:10px 14px;background:var(--card2);border-radius:var(--rs);margin-bottom:16px;line-height:1.7">${claims.promiseComparison}</div>` : ''}
+        ${claims.redFlags?.length ? `
+          <div style="font-family:var(--font-h);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--danger);margin-bottom:8px">Red Flags</div>
+          ${claims.redFlags.map(f => `<div style="display:flex;gap:8px;font-size:13px;color:var(--white2);margin-bottom:6px"><span style="color:var(--danger);flex-shrink:0">&#9888;</span>${f}</div>`).join('')}` : ''}
+        <div style="margin-top:16px;font-size:12px;color:var(--success)">&#10003; Report saved successfully</div>`;
+
+      // Refresh history
+      loadVendorReportHistory(dealerId);
+      fileInput.value = '';
+
+    } catch(e) {
+      resultCard.innerHTML = `<div class="alert alert-error" style="display:block">Upload failed: ${e.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Upload & Extract with AI';
+  }
+
+  async function loadVendorReportHistory(dealerId) {
+    const el = document.getElementById('vrHistory');
+    if (!el) return;
+    try {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const reports = await sbGet('vendor_reports', `?dealer_id=eq.${dealerId}&select=*,vendors(vendor_name)&order=report_year.desc,report_month.desc&limit=20`);
+
+      if (reports.length === 0) {
+        el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:16px 0">No vendor reports uploaded yet.</div>';
+        return;
+      }
+
+      el.innerHTML = `<div class="table-wrap"><table>
+        <tr><th>Vendor</th><th>Period</th><th>File</th><th>Verdict</th><th>Uploaded</th></tr>
+        ${reports.map(r => {
+          const claims = r.extracted_claims || {};
+          const verdictColors = { delivering: 'var(--success)', mixed: 'var(--warning)', unclear: 'var(--muted)', underdelivering: 'var(--danger)' };
+          const vc = verdictColors[claims.verdict] || 'var(--muted)';
+          return `<tr style="cursor:pointer" onclick="viewVendorReport('${r.id}')">
+            <td class="td-main">${r.vendors?.vendor_name || 'General'}</td>
+            <td>${months[r.report_month-1]} ${r.report_year}</td>
+            <td style="font-size:12px;color:var(--muted)">${r.file_name || '—'}</td>
+            <td>${claims.verdict ? `<span style="font-family:var(--font-h);font-size:9px;font-weight:700;color:${vc};border:1px solid ${vc};padding:2px 8px;border-radius:100px;text-transform:uppercase">${claims.verdict}</span>` : '—'}</td>
+            <td style="font-size:12px;color:var(--muted)">${r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString() : '—'}</td>
+          </tr>`;
+        }).join('')}
+      </table></div>`;
+    } catch(e) {
+      if (el) el.innerHTML = `<div style="font-size:13px;color:var(--danger)">${e.message}</div>`;
+    }
+  }
+
+  async function viewVendorReport(reportId) {
+    try {
+      const rows = await sbGet('vendor_reports', `?id=eq.${reportId}&select=*,vendors(vendor_name)`);
+      const r = rows[0];
+      if (!r) return;
+      const claims = r.extracted_claims || {};
+      const verdictColors = { delivering: 'var(--success)', mixed: 'var(--warning)', unclear: 'var(--muted)', underdelivering: 'var(--danger)' };
+      const vc = verdictColors[claims.verdict] || 'var(--muted)';
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+      const resultCard = document.getElementById('vrResultCard');
+      if (!resultCard) return;
+      resultCard.style.display = 'block';
+      resultCard.innerHTML = `
+        <div style="font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-light);margin-bottom:12px">
+          ${r.vendors?.vendor_name || 'Vendor'} · ${months[r.report_month-1]} ${r.report_year}
+        </div>
+        <div style="font-size:14px;color:var(--white2);line-height:1.75;margin-bottom:14px">${claims.reportSummary || 'No summary.'}</div>
+        ${claims.verdict ? `<div style="margin-bottom:14px"><span style="font-family:var(--font-h);font-size:10px;font-weight:700;color:${vc};border:1px solid ${vc};padding:3px 12px;border-radius:100px;text-transform:uppercase">${claims.verdict}</span> <span style="font-size:13px;color:var(--muted)">${claims.verdictReason||''}</span></div>` : ''}
+        ${claims.claimedMetrics?.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:14px">${claims.claimedMetrics.slice(0,8).map(m=>`<div style="background:var(--card2);border-radius:var(--rs);padding:10px 12px"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">${m.metric}</div><div style="font-family:var(--font-h);font-size:14px;font-weight:700;color:var(--white)">${m.value}</div></div>`).join('')}</div>` : ''}
+        ${claims.promiseComparison && claims.promiseComparison !== 'no promises on file' ? `<div style="font-size:13px;color:var(--white2);padding:10px 14px;background:var(--card2);border-radius:var(--rs);margin-bottom:14px;line-height:1.7">${claims.promiseComparison}</div>` : ''}
+        ${claims.redFlags?.length ? `<div style="font-family:var(--font-h);font-size:9px;font-weight:700;color:var(--danger);text-transform:uppercase;margin-bottom:8px">Red Flags</div>${claims.redFlags.map(f=>`<div style="font-size:13px;color:var(--white2);margin-bottom:6px">&#9888; ${f}</div>`).join('')}` : ''}`;
+    } catch(e) {
+      console.warn('Error viewing vendor report:', e.message);
     }
   }
 
@@ -1121,11 +1340,12 @@
   function switchTab(tabId, dealerId) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     event.target.classList.add('active');
-    ['overview','vendors-tab','competitors-tab','sales-tab','reports-tab'].forEach(t => {
+    ['overview','vendors-tab','competitors-tab','sales-tab','vendor-reports-tab','reports-tab'].forEach(t => {
       const el = document.getElementById('tab-'+t);
       if (el) el.style.display = t === tabId ? 'block' : 'none';
     });
     if (tabId === 'sales-tab' && dealerId) loadSalesHistory(dealerId);
+    if (tabId === 'vendor-reports-tab' && dealerId) loadVendorReportHistory(dealerId);
   }
 
   // ── REPORTS PAGE ──
